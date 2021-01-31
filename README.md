@@ -28,3 +28,8 @@ Or just run the install script by doing the following steps
     - >sudo apt install python-virtualenv
 3. Then run the script
     - >./install_environment.sh
+
+## Interesting Links
+
+[Temporal Difference Learning and TD-Gammon](https://cling.csd.uwo.ca/cs346a/extra/tdgammon.pdf)
+[Deep reinforcement learning compared with Q-table learning applied to backgammon](https://www.kth.se/social/files/58865ec8f27654607fb6e9a4/PFinnman_MWinberg_dkand16.pdf)
