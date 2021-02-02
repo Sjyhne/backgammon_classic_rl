@@ -36,9 +36,6 @@ def make_plays():
 
     print("Starting agent color:", agent_color)
     print("The first roll for the starting agent is", first_roll)
-
-    # Cannot see that observation is used, but I think we might need this for the Q-learning
-    # As it may tell us something useful..?
     print("Observation:", observation)
 
     agent = agents[agent_color]
