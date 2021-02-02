@@ -1,6 +1,10 @@
 # Backgammon Classic Reinforcement Learning
 Solving backgammon using classical reinforcement learning techniques
 
+## Status
+
+I've currently just copied the example file from the gym and tried to make sense of it. I've also realized that I need to understand backgammon first in order to make sense of the "available_actions" parameter. The file is named ```play_random_agents.py``
+
 ## Gym
 
 We are using the https://github.com/dellalibera/gym-backgammon gym for training the reinforcement learning model
@@ -34,3 +38,5 @@ Or just run the install script by doing the following steps
 [Temporal Difference Learning and TD-Gammon](https://cling.csd.uwo.ca/cs346a/extra/tdgammon.pdf)
 
 [Deep reinforcement learning compared with Q-table learning applied to backgammon](https://www.kth.se/social/files/58865ec8f27654607fb6e9a4/PFinnman_MWinberg_dkand16.pdf)
+
+[Gym Environment](https://github.com/dellalibera/gym-backgammon.git)
