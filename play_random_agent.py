@@ -8,8 +8,6 @@ from gym_backgammon.envs.backgammon import WHITE, BLACK, COLORS, TOKEN
 env = gym.make('gym_backgammon:backgammon-v0')
 # env = gym.make('gym_backgammon:backgammon-pixel-v0')
 
-random.seed(0)
-np.random.seed(0)
 
 
 # We will have to replace this agent with our own agents
@@ -34,20 +32,22 @@ def make_plays():
 
     agent_color, first_roll, observation = env.reset()
 
-    print("Starting agent color:", agent_color)
-    print("The first roll for the starting agent is", first_roll)
-    print("Observation:", observation)
+    #print("Starting agent color:", agent_color)
+    #print("The first roll for the starting agent is", first_roll)
+    #print("Observation:", observation)
 
     agent = agents[agent_color]
 
-    print("Agent:", agent.color)
+    #print("Agent:", agent.color)
 
     t = time.time()
 
     env.render(mode='human')
 
+    print(observation)
+
     """
-    for i in range(0, 5):
+    for i in count():
         if first_roll:
             roll = first_roll
             first_roll = None
@@ -61,6 +61,7 @@ def make_plays():
         print("\nLegal Actions:")
         for a in actions:
             print(a)
+        
 
         action = agent.choose_best_action(actions, env)
 
@@ -84,9 +85,9 @@ def make_plays():
         agent_color = env.get_opponent_agent()
         agent = agents[agent_color]
         observation = observation_next
-
-    env.close()
     """
+    env.close()
+    
 
 
 if __name__ == '__main__':
