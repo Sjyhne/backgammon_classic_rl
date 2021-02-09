@@ -1,37 +1,48 @@
 import numpy as np
 from collections import namedtuple
 import itertools
+from itertools import count
 import random
 
 WHITE = 0
 BLACK = 1
-NUM_POINTS = 10
+NUM_POINTS = 9
 TOKEN = {WHITE: "O", BLACK: "X"}
 COLORS = {WHITE: "White", BLACK: "Black"}
 
 BackgammonState = namedtuple('BackgammonState', ['board', 'off', 'players_positions'])
 
-def init_board():
-    board = [([0 for i in range(3)], None)] * NUM_POINTS
-    # BLACK
-    board[0] = ([1, 0, 0], BLACK)
-    board[3] = ([1, 1, 0], BLACK)
-    board[6] = ([1, 1, 1], BLACK)
-    # WHITE
-    board[2] = ([1, 1, 1], WHITE)
-    board[5] = ([1, 1, 0], WHITE)
-    board[8] = ([1, 0, 0], WHITE)
+def print_token(player):
+    if player == None:
+        return "-"
+    elif player == WHITE:
+        return TOKEN[WHITE]
+    else:
+        return TOKEN[BLACK]
 
-    return board
+def init_board():
+    board = [([0 for i in range(6)], None)] * NUM_POINTS
+    # BLACK
+    board[0] = ([1, 0, 0, 0, 0, 0], BLACK)
+    board[3] = ([1, 1, 0, 0, 0, 0], BLACK)
+    board[6] = ([1, 1, 1, 0, 0, 0], BLACK)
+    # WHITE
+    board[2] = ([1, 1, 1, 0, 0, 0], WHITE)
+    board[5] = ([1, 1, 0, 0, 0, 0], WHITE)
+    board[8] = ([1, 0, 0, 0, 0, 0], WHITE)
+
+    bar = ([0 for i in range(6)], None)
+
+    return board, bar
 
 def get_opponent_color(current_player):
     return WHITE if current_player is BLACK else BLACK
 
 class Simplified_Backgammon:
     def __init__(self):
-        self.board = init_board()
+        self.board, self.bar = init_board()
         self.off = [[0 for i in range(6)], [0 for i in range(6)]]
-        self.players_home_positions = {WHITE: [6, 7, 8], BLACK: [0, 1, 2]}
+        self.players_home_positions = {BLACK: [6, 7, 8], WHITE: [0, 1, 2]}
         self.players_positions = self.get_players_positions()
         self.state = self.save_state()
 
@@ -60,47 +71,105 @@ class Simplified_Backgammon:
             spots = range(9)
 
         for spot in spots:
-            print(f"Checking spot {spot}")
             if self.is_valid(player, spot):
                 return spot
         
-        print("Did not find available spot")
         return None
 
-    def add_checker(self, src, player):
-        if self.board[src][0] == [0, 0, 0]:
-            self.board[src] = ([1, 0, 0], player)
-        elif self.board[src][0] == [1, 0, 0]:
-            self.board[src] = ([1, 1, 0], player)
-        elif self.board[src][0] == [1, 1, 0]:
-            self.board[src] = ([1, 1, 1], player)
+    def add_checker(self, src, player, knocked_off=False):
+        if knocked_off:
+            # 0 -> 1
+            if self.bar[0] == [0, 0, 0, 0, 0, 0]:
+                self.bar = ([1, 0, 0, 0, 0, 0], player)
+            # 1 -> 2
+            elif self.bar[0] == [1, 0, 0, 0, 0, 0]:
+                self.bar = ([1, 1, 0, 0, 0, 0], player)
+            # 2 -> 3
+            elif self.bar[0] == [1, 1, 0, 0, 0, 0]:
+                self.bar = ([1, 1, 1, 0, 0, 0], player)
+            # 3 -> 4
+            elif self.bar[0] == [1, 1, 1, 0, 0, 0]:
+                self.bar = ([1, 1, 1, 1, 0, 0], player)
+            # 4 -> 5
+            elif self.bar[0] == [1, 1, 1, 1, 0, 0]:
+                self.bar = ([1, 1, 1, 1, 1, 0], player)
+            # 5 -> 6
+            elif self.bar[0] == [1, 1, 1, 1, 1, 0]:
+                self.bar = ([1, 1, 1, 1, 1, 1], player)
+            else:
+                print(f"ERROR: Too many checkers at {src}, terminating")
+                exit(1)
         else:
-            print(f"ERROR: Too many checkers at {src}, terminating")
-            exit(1)
+            # 0 -> 1
+            if self.board[src][0] == [0, 0, 0, 0, 0, 0]:
+                self.board[src] = ([1, 0, 0, 0, 0, 0], player)
+            # 1 -> 2
+            elif self.board[src][0] == [1, 0, 0, 0, 0, 0]:
+                self.board[src] = ([1, 1, 0, 0, 0, 0], player)
+            # 2 -> 3
+            elif self.board[src][0] == [1, 1, 0, 0, 0, 0]:
+                self.board[src] = ([1, 1, 1, 0, 0, 0], player)
+            # 3 -> 4
+            elif self.board[src][0] == [1, 1, 1, 0, 0, 0]:
+                self.board[src] = ([1, 1, 1, 1, 0, 0], player)
+            # 4 -> 5
+            elif self.board[src][0] == [1, 1, 1, 1, 0, 0]:
+                self.board[src] = ([1, 1, 1, 1, 1, 0], player)
+            # 5 -> 6
+            elif self.board[src][0] == [1, 1, 1, 1, 1, 0]:
+                self.board[src] = ([1, 1, 1, 1, 1, 1], player)
+            else:
+                print(f"ERROR: Too many checkers at {src}, terminating")
+                exit(1)
 
-    def remove_checker(self, src, player):
-        if self.board[src][0] == [1, 0, 0]:
-            self.board[src] = ([0, 0, 0], None)
-        elif self.board[src][0] == [1, 1, 0]:
-            self.board[src] = ([1, 0, 0], player)
-        elif self.board[src][0] == [1, 1, 1]:
-            self.board[src] = ([1, 1, 0], player)
+    def remove_checker(self, src, player, knocked_off=False):
+        if knocked_off:
+            # 6 -> 5
+            if self.bar[0] == [1, 1, 1, 1, 1, 1]:
+                self.bar = ([1, 1, 1, 1, 1, 0], player)
+            # 5 -> 4
+            elif self.bar[0] == [1, 1, 1, 1, 1, 0]:
+                self.bar = ([1, 1, 1, 1, 0, 0], player)
+            # 4 -> 3
+            elif self.bar[0] == [1, 1, 1, 1, 0, 0]:
+                self.bar = ([1, 1, 1, 0, 0, 0], player)
+            # 3 -> 2
+            elif self.bar[0] == [1, 1, 1, 0, 0, 0]:
+                self.bar = ([1, 1, 0, 0, 0, 0], player)
+            # 2 -> 1
+            elif self.bar[0] == [1, 1, 0, 0, 0, 0]:
+                self.bar = ([1, 0, 0, 0, 0, 0], player)
+            # 1 -> 0
+            elif self.bar[0] == [1, 0, 0, 0, 0, 0]:
+                self.bar = ([0, 0, 0, 0, 0, 0], None)
+            else:
+                print(f"ERROR: Too few checkers at {src}, terminating")
+                exit(1)
         else:
-            print(f"ERROR: Too few checkers at {src}, terminating")
-            exit(1)
+            # 6 -> 5
+            if self.board[src][0] == [1, 1, 1, 1, 1, 1]:
+                self.board[src] = ([1, 1, 1, 1, 1, 0], player)
+            # 5 -> 4
+            elif self.board[src][0] == [1, 1, 1, 1, 1, 0]:
+                self.board[src] = ([1, 1, 1, 1, 0, 0], player)
+            # 4 -> 3
+            elif self.board[src][0] == [1, 1, 1, 1, 0, 0]:
+                self.board[src] = ([1, 1, 1, 0, 0, 0], player)
+            # 3 -> 2
+            elif self.board[src][0] == [1, 1, 1, 0, 0, 0]:
+                self.board[src] = ([1, 1, 0, 0, 0, 0], player)
+            # 2 -> 1
+            elif self.board[src][0] == [1, 1, 0, 0, 0, 0]:
+                self.board[src] = ([1, 0, 0, 0, 0, 0], player)
+            # 1 -> 0
+            elif self.board[src][0] == [1, 0, 0, 0, 0, 0]:
+                self.board[src] = ([0, 0, 0, 0, 0, 0], None)
+            else:
+                print(f"ERROR: Too few checkers at {src}, terminating")
+                exit(1)
 
-    def move_knocked_player(self, player):
-        available_spot = self.find_available_spot(player)
-        if self.board[available_spot][1] == None:
-            self.add_checker(available_spot, player)
-        elif self.board[available_spot][1] == player:
-            self.add_checker(available_spot, player)
-        elif self.board[available_spot][1] != player and sum(self.board[available_spot][0]) < 2:
-            self.move_knocked_player(self.board[available_spot][1])
-            self.add_checker(available_spot, player)
 
-
-    def execute_play(self, current_player, action):
+    def execute_play(self, current_player, action, knocked_off=False):
         if action:
             tmp = self.board[:]
             knocked_checkers_count = 0
@@ -111,13 +180,16 @@ class Simplified_Backgammon:
                     if current_player != player_on_target and player_on_target is not None and sum(checkers_on_target) < 2:
                         knocked_checkers_count += 1
                         self.remove_checker(target, player_on_target)
-                        self.add_checker(9, player_on_target)
-
-                    self.remove_checker(src, current_player)
-                    self.add_checker(target, current_player)
+                        self.add_checker(self.bar, player_on_target, knocked_off=True)
+                    if knocked_off:
+                        self.remove_checker(self.bar, current_player, knocked_off=True)
+                        self.add_checker(target, current_player)
+                    else:
+                        self.remove_checker(src, current_player)
+                        self.add_checker(target, current_player)
                     
             for _ in range(knocked_checkers_count):
-                self.execute_play(get_opponent_color(current_player), [(9, self.find_available_spot(get_opponent_color(current_player)))])
+                self.execute_play(get_opponent_color(current_player), [(self.bar, self.find_available_spot(get_opponent_color(current_player)))], knocked_off=True)
             self.players_positions = self.get_players_positions()
 
     
@@ -305,6 +377,10 @@ class Simplified_Backgammon:
             moves.update([((s, t), (s, t)) for (s, t) in single_moves if self.board[s][0] >= 2])
         return moves
 
+    def can_bear_off(self, player):
+        tot = [sum(self.board[position][0]) for position in self.players_home_positions[player] if player == self.board[position][1]]
+        return sum(tot) == 6
+
     def get_triple_moves(self, player, roll, double_moves):
         moves = set()
         reverse = player == WHITE
@@ -329,26 +405,59 @@ class Simplified_Backgammon:
                             moves.add((m1, m2, (s, t)))
 
         moves = set(tuple(sorted(play, reverse=reverse)) for play in moves)
-        return moves 
+        return moves
+
+
+    def render(self, round):
+        top_board = self.board[:3]
+        middle_board = self.board[3:6]
+        bottom_board = self.board[6:]
+
+        assert len(bottom_board) + len(middle_board) + len(top_board) == 9
+
+        print()
+        print(f"   ROUND {round}")
+        print("|===========|")
+        print("| 2 | 1 | 0 |")
+        print("|---WHITE---|")
+        print(f"| {print_token(top_board[2][1])} | {print_token(top_board[1][1])} | {print_token(top_board[0][1])} |")
+        print(f"| {sum(top_board[2][0])} | {sum(top_board[1][0])} | {sum(top_board[0][0])} |")
+        print("|===========|")
+        print("| 5 | 4 | 3 |")
+        print("|----MID----|")
+        print(f"| {print_token(middle_board[2][1])} | {print_token(middle_board[1][1])} | {print_token(middle_board[0][1])} |")
+        print(f"| {sum(middle_board[2][0])} | {sum(middle_board[1][0])} | {sum(middle_board[0][0])} |")
+        print("|===========|")
+        print("| 6 | 7 | 8 |")
+        print("|---BLACK---|")
+        print(f"| {print_token(bottom_board[2][1])} | {print_token(bottom_board[1][1])} | {print_token(bottom_board[0][1])} |")
+        print(f"| {sum(bottom_board[2][0])} | {sum(bottom_board[1][0])} | {sum(bottom_board[0][0])} |")
+        print("|===========|")
+        print()
 
 
 game = Simplified_Backgammon()
 
 agent = random.choice([WHITE, BLACK])
 
-for i in range(5):
-    print(game.board)
+game.render(0)
+
+for i in count():
     roll = (random.randint(1, 3), random.randint(1, 3)) if agent == BLACK else (-random.randint(1, 3), -random.randint(1, 3))
     plays = None
     if roll[0] == roll[1]:
         plays = game.get_normal_plays_double(agent, roll)
     else:
         plays = game.get_normal_plays(agent, roll)
-    print(roll)
-    print(agent)
-    print()
     if len(plays) > 0:
         play = random.choice(plays)
-        print(play)
         game.execute_play(agent, play)
+
+    print(f"{COLORS[agent]} got {roll} and made action:", play)
+    game.render(i)
+
+
+    if game.can_bear_off(agent):
+        print(f"Agent {COLORS[agent]} won after {i} rounds!")
+        break
     agent = get_opponent_color(agent)
