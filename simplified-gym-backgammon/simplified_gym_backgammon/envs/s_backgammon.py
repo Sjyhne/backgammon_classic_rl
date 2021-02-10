@@ -172,18 +172,18 @@ class Simplified_Backgammon:
         return BackgammonState(self.board, self.off, self.players_positions)
 
     def is_valid(self, player, target):
-        if 0 <= target < NUM_POINTS - 1:
-            return sum(self.board[target][0]) < 2 or (sum(self.board[target][0]) < 3 and self.board[target][1] == player)
+        if 0 <= target < NUM_POINTS:
+            return sum(self.board[target][0]) < 2 or self.board[target][1] == player
         return False
 
     def find_available_spot(self, player):
         spots = None
         if player == WHITE:
             # Home is 6, 7, 8
-            spots = reversed(range(9))
+            spots = range(9)
         else:
             # Home is 0, 1, 2
-            spots = range(9)
+            spots = reversed(range(9))
 
         for spot in spots:
             if self.is_valid(player, spot):
@@ -214,6 +214,19 @@ class Simplified_Backgammon:
             else:
                 print(f"ERROR: Too many checkers at {action}, terminating")
                 exit(1)
+        elif action == -1 or action == 9:
+            if self.off[player] == [0, 0, 0, 0, 0, 0]:
+                self.off[player] = [1, 0, 0, 0, 0, 0]
+            elif self.off[player] == [1, 0, 0, 0, 0, 0]:
+                self.off[player] = [1, 1, 0, 0, 0, 0]
+            elif self.off[player] == [1, 1, 0, 0, 0, 0]:
+                self.off[player] = [1, 1, 1, 0, 0, 0]
+            elif self.off[player] == [1, 1, 1, 0, 0, 0]:
+                self.off[player] = [1, 1, 1, 1, 0, 0]
+            elif self.off[player] == [1, 1, 1, 1, 0, 0]:
+                self.off[player] = [1, 1, 1, 1, 1, 0]
+            elif self.off[player] == [1, 1, 1, 1, 1, 0]:
+                self.off[player] = [1, 1, 1, 1, 1, 1]
         else:
             # 0 -> 1
             if self.board[action][0] == [0, 0, 0, 0, 0, 0]:
@@ -237,7 +250,7 @@ class Simplified_Backgammon:
                 print(f"ERROR: Too many checkers at {action}, terminating")
                 exit(1)
 
-    def remove_checker(self, action, player, knocked_off=False):
+    def remove_checker(self, src, player, knocked_off=False):
         if knocked_off:
             # 6 -> 5
             if self.bar[0] == [1, 1, 1, 1, 1, 1]:
@@ -258,29 +271,30 @@ class Simplified_Backgammon:
             elif self.bar[0] == [1, 0, 0, 0, 0, 0]:
                 self.bar = ([0, 0, 0, 0, 0, 0], None)
             else:
-                print(f"ERROR: Too few checkers at {action}, terminating")
+                print(f"ERROR: Too few checkers at {src}, terminating")
                 exit(1)
         else:
             # 6 -> 5
-            if self.board[action][0] == [1, 1, 1, 1, 1, 1]:
-                self.board[action] = ([1, 1, 1, 1, 1, 0], player)
+            if self.board[src][0] == [1, 1, 1, 1, 1, 1]:
+                self.board[src] = ([1, 1, 1, 1, 1, 0], player)
             # 5 -> 4
-            elif self.board[action][0] == [1, 1, 1, 1, 1, 0]:
-                self.board[action] = ([1, 1, 1, 1, 0, 0], player)
+            elif self.board[src][0] == [1, 1, 1, 1, 1, 0]:
+                self.board[src] = ([1, 1, 1, 1, 0, 0], player)
             # 4 -> 3
-            elif self.board[action][0] == [1, 1, 1, 1, 0, 0]:
-                self.board[action] = ([1, 1, 1, 0, 0, 0], player)
+            elif self.board[src][0] == [1, 1, 1, 1, 0, 0]:
+                self.board[src] = ([1, 1, 1, 0, 0, 0], player)
             # 3 -> 2
-            elif self.board[action][0] == [1, 1, 1, 0, 0, 0]:
-                self.board[action] = ([1, 1, 0, 0, 0, 0], player)
+            elif self.board[src][0] == [1, 1, 1, 0, 0, 0]:
+                self.board[src] = ([1, 1, 0, 0, 0, 0], player)
             # 2 -> 1
-            elif self.board[action][0] == [1, 1, 0, 0, 0, 0]:
-                self.board[action] = ([1, 0, 0, 0, 0, 0], player)
+            elif self.board[src][0] == [1, 1, 0, 0, 0, 0]:
+                self.board[src] = ([1, 0, 0, 0, 0, 0], player)
             # 1 -> 0
-            elif self.board[action][0] == [1, 0, 0, 0, 0, 0]:
-                self.board[action] = ([0, 0, 0, 0, 0, 0], None)
+            elif self.board[src][0] == [1, 0, 0, 0, 0, 0]:
+                self.board[src] = ([0, 0, 0, 0, 0, 0], None)
             else:
-                print(f"ERROR: Too few checkers at {action}, terminating")
+                print(self.board[src][0])
+                print(f"ERROR: Too few checkers at {src}, terminating")
                 exit(1)
 
 
@@ -288,20 +302,23 @@ class Simplified_Backgammon:
         if action:
             tmp = self.board[:]
             knocked_checkers_count = 0
-            for move in action:
+            for idx, move in enumerate(action):
                 src, target = move
                 if 0 <= target < NUM_POINTS:
                     checkers_on_target, player_on_target = self.board[target]
                     if current_player != player_on_target and player_on_target is not None and sum(checkers_on_target) < 2:
                         knocked_checkers_count += 1
-                        self.remove_checker(move[1], player_on_target)
+                        self.remove_checker(target, player_on_target)
                         self.add_checker(self.bar, player_on_target, knocked_off=True)
                     if knocked_off:
                         self.remove_checker(self.bar, current_player, knocked_off=True)
-                        self.add_checker(move[1], current_player)
+                        self.add_checker(target, current_player)
                     else:
-                        self.remove_checker(move[0], current_player)
-                        self.add_checker(move[1], current_player)
+                        self.remove_checker(src, current_player)
+                        self.add_checker(target, current_player)
+                elif target == -1 or target == 9:
+                    self.remove_checker(src, current_player)
+                    self.add_checker(target, current_player)
                     
             for _ in range(knocked_checkers_count):
                 self.execute_play(get_opponent_color(current_player), [(self.bar, self.find_available_spot(get_opponent_color(current_player)))], knocked_off=True)
@@ -495,7 +512,7 @@ class Simplified_Backgammon:
 
     def can_bear_off(self, player):
         tot = [sum(self.board[position][0]) for position in self.players_home_positions[player] if player == self.board[position][1]]
-        return sum(tot) == 6
+        return sum(tot) == (6 - sum(self.off[player]))
 
     def get_triple_moves(self, player, roll, double_moves):
         moves = set()
@@ -650,8 +667,11 @@ class Simplified_Backgammon:
                                 plays.add((move, (s1_best, clamp(s1_best + r2))))
 
         else:
+            print("Home_positions:", home_positions)
+            print("Active_positions:", active_positions)
             candidate_src = [s for s in active_positions if s not in home_positions]
-            assert len(candidate_src) == 1, print("Should be 1 instead of {}".format(candidate_src))
+            # assert len(candidate_src) == 1, print("Should be 1 instead of {}".format(candidate_src))
+            print("Candidate_src:", candidate_src)
             candidate_src = candidate_src[0]
             t1 = candidate_src + r1
             t2 = candidate_src + r2
@@ -702,11 +722,11 @@ class Simplified_Backgammon:
         out_of_home = [s for s in set(self.players_positions[player]) if s not in home_positions]
         # Actions needed to move the checkers (if any) that are out of home, to home board
         out_of_home_move = self.move_to_go_home(player, r, out_of_home)
-        if len(out_of_home_move) > 0:
+        #if len(out_of_home_move) > 0:
             # I execute the move needed to move all the checkers that are not in home board to home board (in order to update the board - I saved the state)
-            self.execute_play(player, out_of_home_move)
-            self.players_positions = self.get_players_positions()
-        assert len(list(out_of_home_move)) <= 3, print("Should be <= 3 instead of {}".format(out_of_home_move))
+            #self.execute_play(player, out_of_home_move)
+            #self.players_positions = self.get_players_positions()
+        #assert len(list(out_of_home_move)) <= 3, print("Should be <= 3 instead of {}".format(out_of_home_move))
         # number of dice used to move all the checkers that are not in home board to home board (should be <= 3)
         dice_used = len(out_of_home_move)
 
@@ -1398,9 +1418,9 @@ class Simplified_Backgammon:
         return plays
 
     def get_winner(self):
-        if self.off[WHITE] == 6:
+        if sum(self.off[WHITE]) == 6:
             return WHITE
-        elif self.off[BLACK] == 6:
+        elif sum(self.off[BLACK]) == 6:
             return BLACK
         return None
 
@@ -1424,7 +1444,6 @@ class Simplified_Backgammon:
         #    bar_plays = self.get_bar_plays(player, roll) if len(roll) <= 2 else self.get_bar_plays_double(player, roll)
         #else:
         if self.could_bear_off(player, roll):
-            print("CAN BEAR OFF")
             bear_off_plays = self.get_bear_off_plays(player, roll) if len(roll) <= 2 else self.get_bear_off_play_double(player, roll)
         normal_plays = self.get_normal_plays(player, roll) if len(roll) <= 2 else self.get_normal_plays_double(player, roll)
 
@@ -1450,23 +1469,13 @@ class Simplified_Backgammon:
         assert len(bottom_board) + len(middle_board) + len(top_board) == 9
 
         print()
-        print(f"   ROUND {round}")
-        print("|===========|")
-        print("| 2 | 1 | 0 |")
-        print("|---WHITE---|")
-        print(f"| {print_token(top_board[2][1])} | {print_token(top_board[1][1])} | {print_token(top_board[0][1])} |")
-        print(f"| {sum(top_board[2][0])} | {sum(top_board[1][0])} | {sum(top_board[0][0])} |")
-        print("|===========|")
-        print("| 5 | 4 | 3 |")
-        print("|----MID----|")
-        print(f"| {print_token(middle_board[2][1])} | {print_token(middle_board[1][1])} | {print_token(middle_board[0][1])} |")
-        print(f"| {sum(middle_board[2][0])} | {sum(middle_board[1][0])} | {sum(middle_board[0][0])} |")
-        print("|===========|")
-        print("| 6 | 7 | 8 |")
-        print("|---BLACK---|")
-        print(f"| {print_token(bottom_board[2][1])} | {print_token(bottom_board[1][1])} | {print_token(bottom_board[0][1])} |")
-        print(f"| {sum(bottom_board[2][0])} | {sum(bottom_board[1][0])} | {sum(bottom_board[0][0])} |")
-        print("|===========|")
+        print(f" \t\t\t  ROUND {round} ")
+        print(" ========================================================== ")
+        print("  WHITE | 0 | 1 | 2 |   | 3 | 4 | 5 |   | 6 | 7 | 8 | BLACK ")
+        print(" ---------------------------------------------------------- ")
+        print(f"    {sum(self.off[0])}   | {print_token(top_board[0][1])} | {print_token(top_board[1][1])} | {print_token(top_board[2][1])} |   | {print_token(middle_board[0][1])} | {print_token(middle_board[1][1])} | {print_token(middle_board[2][1])} |   | {print_token(bottom_board[0][1])} | {print_token(bottom_board[1][1])} | {print_token(bottom_board[2][1])} |   {sum(self.off[1])}")
+        print(f"   OFF  | {sum(top_board[0][0])} | {sum(top_board[1][0])} | {sum(top_board[2][0])} |   | {sum(middle_board[0][0])} | {sum(middle_board[1][0])} | {sum(middle_board[2][0])} |   | {sum(bottom_board[0][0])} | {sum(bottom_board[1][0])} | {sum(bottom_board[2][0])} |  OFF")
+        print(" ========================================================== ")
         print()
 
 
@@ -1482,6 +1491,7 @@ for i in count():
     print("PLAYS:", plays)
     if len(plays) > 0:
         play = random.choice(plays)
+        print("AGENT:", COLORS[agent], "ROLL:", roll, "PLAY:", play)
         game.execute_play(agent, play)
         print(f"{COLORS[agent]} got {roll} and made action:", play)
     else:
