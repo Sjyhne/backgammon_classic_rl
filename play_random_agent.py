@@ -46,7 +46,7 @@ def make_plays():
 
     print(observation)
 
-    
+    """
     for i in count():
         if first_roll:
             roll = first_roll
@@ -88,7 +88,7 @@ def make_plays():
     
     env.close()
     
-
+"""
 
 if __name__ == '__main__':
     make_plays()

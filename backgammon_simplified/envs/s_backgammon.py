@@ -293,7 +293,6 @@ class Simplified_Backgammon:
             elif self.board[src][0] == [1, 0, 0, 0, 0, 0]:
                 self.board[src] = ([0, 0, 0, 0, 0, 0], None)
             else:
-                print(self.board[src][0])
                 print(f"ERROR: Too few checkers at {src}, terminating")
                 exit(1)
 
@@ -667,11 +666,8 @@ class Simplified_Backgammon:
                                 plays.add((move, (s1_best, clamp(s1_best + r2))))
 
         else:
-            print("Home_positions:", home_positions)
-            print("Active_positions:", active_positions)
             candidate_src = [s for s in active_positions if s not in home_positions]
             # assert len(candidate_src) == 1, print("Should be 1 instead of {}".format(candidate_src))
-            print("Candidate_src:", candidate_src)
             candidate_src = candidate_src[0]
             t1 = candidate_src + r1
             t2 = candidate_src + r2
@@ -1417,6 +1413,30 @@ class Simplified_Backgammon:
         self.restore_state(old_state)
         return plays
 
+    def get_game_features(self, current_player):
+        white_pieces = []
+        black_pieces = []
+        for spike in self.board:
+            if spike[1] == WHITE:
+                white_pieces.extend(spike[0])
+                black_pieces.extend([0 for i in range(6)])
+            elif spike[1] == BLACK:
+                white_pieces.extend([0 for i in range(6)])
+                black_pieces.extend(spike[0])
+            else:
+                white_pieces.extend([0 for i in range(6)])
+                black_pieces.extend([0 for i in range(6)])
+        
+        white_pieces.extend(self.off[WHITE])
+        black_pieces.extend(self.off[BLACK])
+
+        board_obs = []
+        board_obs.extend(white_pieces)
+        board_obs.extend(black_pieces)
+        board_obs.extend([get_opponent_color(current_player)])
+
+        return board_obs
+
     def get_winner(self):
         if sum(self.off[WHITE]) == 6:
             return WHITE
@@ -1478,13 +1498,16 @@ class Simplified_Backgammon:
         print(" ========================================================== ")
         print()
 
-
+"""
 game = Simplified_Backgammon()
 
 agent = random.choice([WHITE, BLACK])
 
 game.render(0)
 
+game.get_game_features(agent)
+"""
+"""
 for i in count():
     roll = (random.randint(1, 3), random.randint(1, 3)) if agent == BLACK else (-random.randint(1, 3), -random.randint(1, 3))
     plays = game.get_valid_plays(agent, roll)
@@ -1505,3 +1528,4 @@ for i in count():
         print(f"Agent {COLORS[winner]} won after {i} rounds!")
         break
     agent = get_opponent_color(agent)
+"""
