@@ -46,7 +46,7 @@ def make_plays():
 
     print(observation)
 
-    """
+    
     for i in count():
         if first_roll:
             roll = first_roll
@@ -85,7 +85,7 @@ def make_plays():
         agent_color = env.get_opponent_agent()
         agent = agents[agent_color]
         observation = observation_next
-    """
+    
     env.close()
     
 
