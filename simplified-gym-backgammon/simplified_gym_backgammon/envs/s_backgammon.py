@@ -248,7 +248,7 @@ class Simplified_Backgammon:
             for move in single_moves:
                 plays.add((move,))
 
-        return [list(play) for play in plays]
+        return plays
 
     def get_normal_plays_double(self, player, roll):
         plays = set()
@@ -357,7 +357,7 @@ class Simplified_Backgammon:
 
                         if self.is_valid(player, target_far1):
                             plays.add(((s1, s1 + r), (s1 + r, target_far1), (s2, s2 + r), (s3, s3 + r)))
-        return [list(play) for play in plays]
+        return plays
     def get_single_moves(self, player, roll, other_move_target=None, player_src=None):
         if player_src is not None:
             moves = set((s, s + roll) for s in player_src if self.is_valid(player, s + roll))
@@ -406,6 +406,38 @@ class Simplified_Backgammon:
 
         moves = set(tuple(sorted(play, reverse=reverse)) for play in moves)
         return moves
+    
+    def get_valid_plays(self, player, roll):
+        valid_plays = set()
+        top_valid_plays = set()
+
+        normal_plays = set()
+        bear_off_plays = set()
+        bar_plays = set()
+        reverse = player == WHITE
+
+        roll = (roll[0], roll[0], roll[0], roll[0]) if roll[0] == roll[1] else roll
+
+        #if self.bar[player]:
+        #    bar_plays = self.get_bar_plays(player, roll) if len(roll) <= 2 else self.get_bar_plays_double(player, roll)
+        #else:
+            #if self.could_bear_off(player, roll):
+                #bear_off_plays = self.get_bear_off_plays(player, roll) if len(roll) <= 2 else self.get_bear_off_play_double(player, roll)
+        
+        normal_plays = self.get_normal_plays(player, roll) if len(roll) <= 2 else self.get_normal_plays_double(player, roll)
+
+        valid_plays.update(normal_plays)
+        #valid_plays.update(bear_off_plays)
+
+        valid_plays = set(tuple(sorted(play, reverse=reverse)) for play in valid_plays)
+
+        valid_plays.update(bar_plays)
+
+        if len(valid_plays) > 0:
+            max_length_move = len(max(valid_plays, key=len))  # select the plays that use the most number of dice
+            top_valid_plays = set(play for play in valid_plays if len(play) == max_length_move)
+
+        return [list(play) for play in top_valid_plays]
 
 
     def render(self, round):
@@ -444,16 +476,15 @@ game.render(0)
 
 for i in count():
     roll = (random.randint(1, 3), random.randint(1, 3)) if agent == BLACK else (-random.randint(1, 3), -random.randint(1, 3))
-    plays = None
-    if roll[0] == roll[1]:
-        plays = game.get_normal_plays_double(agent, roll)
-    else:
-        plays = game.get_normal_plays(agent, roll)
+    plays = game.get_valid_plays(agent, roll)
+    print("PLAYS:", plays)
     if len(plays) > 0:
         play = random.choice(plays)
         game.execute_play(agent, play)
+        print(f"{COLORS[agent]} got {roll} and made action:", play)
+    else:
+        print(f"{COLORS[agent]} got {roll} and made no action")
 
-    print(f"{COLORS[agent]} got {roll} and made action:", play)
     game.render(i)
 
 
