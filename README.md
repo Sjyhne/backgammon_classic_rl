@@ -1,9 +1,20 @@
 # Backgammon Classic Reinforcement Learning
 Solving backgammon using classical reinforcement learning techniques
 
-## Status
+# PLAN
 
-I've currently just copied the example file from the gym and tried to make sense of it. I've also realized that I need to understand backgammon first in order to make sense of the "available_actions" parameter. The file is named ```play_random_agents.py``
+* Sander
+    * :-)
+* Sigurd
+    * :-)
+* Jørgen
+    * :-)
+
+
+Must explore and understand temporal difference learning and policy gradient learning. Find examples of implementations/possible algorithms to use.
+
+What is Monte Carlo and what is Dynamic Programming and what is Markov Decision Policies
+
 
 ## Gym
 
