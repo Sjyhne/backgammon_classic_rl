@@ -1441,6 +1441,18 @@ class Simplified_Backgammon:
             return BLACK
         return None
 
+    def get_all_actions(self, current_player):
+        """
+            We need to think about:
+                * Which color are the current player?
+                * Is it a double throw?
+                * Where are the pawns placed on the board?
+                * How many combinations are available? I.e. [(1, 4), (4, 6)] and [(1, 3), (3, 6)]
+
+            Hopefully we can steal some code from the other functions?
+        """
+        ...
+
     def can_move_to(self, player, target):
         if target < 0 or target > 8:
             return self.can_bear_off(player)
