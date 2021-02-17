@@ -5,6 +5,14 @@ import random
 from backgammon_simplified.envs.s_backgammon import COLORS, TOKEN, WHITE, BLACK
 from backgammon_simplified.envs.s_backgammon_env import SimplifiedBackgammonEnv
 
+"""
+    Must make the agent able to choose illegal actions, and
+    then returning a reward based on the whether the action is
+    legal or not
+
+    I'm not sure whether the agent should lose it's turn when
+    it chooses an illegal action?
+"""
 
 class RandomAgent:
     def __init__(self, color):
@@ -23,7 +31,7 @@ def play_game():
     env = gym.make("backgammon_simplified:backgammon-v69")
 
     agent, roll, observation = env.reset()
-    
+
     agents = {WHITE: RandomAgent(WHITE), BLACK: RandomAgent(BLACK)}
 
     agent_color, first_roll, observation = env.reset()
@@ -44,7 +52,6 @@ def play_game():
         action = agent.choose_best_action(valid_actions, observation)
 
         next_obseration, reward, done, winner = env.step(action)
-
         env.render()
 
         if done:

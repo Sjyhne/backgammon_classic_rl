@@ -188,7 +188,6 @@ class Simplified_Backgammon:
         for spot in spots:
             if self.is_valid(player, spot):
                 return spot
-        
         return None
 
     def add_checker(self, action, player, knocked_off=False):
@@ -318,12 +317,10 @@ class Simplified_Backgammon:
                 elif target == -1 or target == 9:
                     self.remove_checker(src, current_player)
                     self.add_checker(target, current_player)
-                    
             for _ in range(knocked_checkers_count):
                 self.execute_play(get_opponent_color(current_player), [(self.bar, self.find_available_spot(get_opponent_color(current_player)))], knocked_off=True)
             self.players_positions = self.get_players_positions()
 
-    
     def get_normal_plays(self, player, roll):
         # Generate normal legal plays (not bear off moves)
         plays = set()
@@ -1460,9 +1457,6 @@ class Simplified_Backgammon:
 
         roll = (roll[0], roll[0], roll[0], roll[0]) if roll[0] == roll[1] else roll
 
-        #if self.bar[player]:
-        #    bar_plays = self.get_bar_plays(player, roll) if len(roll) <= 2 else self.get_bar_plays_double(player, roll)
-        #else:
         if self.could_bear_off(player, roll):
             bear_off_plays = self.get_bear_off_plays(player, roll) if len(roll) <= 2 else self.get_bear_off_play_double(player, roll)
         normal_plays = self.get_normal_plays(player, roll) if len(roll) <= 2 else self.get_normal_plays_double(player, roll)
@@ -1497,35 +1491,3 @@ class Simplified_Backgammon:
         print(f"   OFF  | {sum(top_board[0][0])} | {sum(top_board[1][0])} | {sum(top_board[2][0])} |   | {sum(middle_board[0][0])} | {sum(middle_board[1][0])} | {sum(middle_board[2][0])} |   | {sum(bottom_board[0][0])} | {sum(bottom_board[1][0])} | {sum(bottom_board[2][0])} |  OFF")
         print(" ========================================================== ")
         print()
-
-"""
-game = Simplified_Backgammon()
-
-agent = random.choice([WHITE, BLACK])
-
-game.render(0)
-
-game.get_game_features(agent)
-"""
-"""
-for i in count():
-    roll = (random.randint(1, 3), random.randint(1, 3)) if agent == BLACK else (-random.randint(1, 3), -random.randint(1, 3))
-    plays = game.get_valid_plays(agent, roll)
-    print("PLAYS:", plays)
-    if len(plays) > 0:
-        play = random.choice(plays)
-        print("AGENT:", COLORS[agent], "ROLL:", roll, "PLAY:", play)
-        game.execute_play(agent, play)
-        print(f"{COLORS[agent]} got {roll} and made action:", play)
-    else:
-        print(f"{COLORS[agent]} got {roll} and made no action")
-
-    game.render(i)
-
-    winner = game.get_winner()
-
-    if winner != None:
-        print(f"Agent {COLORS[winner]} won after {i} rounds!")
-        break
-    agent = get_opponent_color(agent)
-"""
