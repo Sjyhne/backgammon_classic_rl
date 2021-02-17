@@ -1441,7 +1441,16 @@ class Simplified_Backgammon:
             return BLACK
         return None
 
-    def get_all_actions(self, current_player):
+    def get_all_actions(self, current_player, roll):
+        double_roll = False
+
+        if roll[0] == roll[1]:
+            double_roll = True
+
+        if double_roll == False:
+            ...
+        else:
+            ...
         """
             We need to think about:
                 * Which color are the current player?
@@ -1451,7 +1460,6 @@ class Simplified_Backgammon:
 
             Hopefully we can steal some code from the other functions?
         """
-        ...
 
     def can_move_to(self, player, target):
         if target < 0 or target > 8:
