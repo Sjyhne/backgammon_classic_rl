@@ -52,6 +52,9 @@ class SimplifiedBackgammonEnv(gym.Env):
     def render(self):
         return self.game.render(self.counter)
 
+    def get_all_actions(self, roll):
+        return self.game.get_all_actions(self.current_agent, roll)
+
     def get_valid_actions(self, roll):
         return self.game.get_valid_plays(self.current_agent, roll)
     

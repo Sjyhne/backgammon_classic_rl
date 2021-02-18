@@ -49,6 +49,8 @@ def play_game():
 
         valid_actions = env.get_valid_actions(roll)
 
+        all_actions = env.get_all_actions(roll)
+
         action = agent.choose_best_action(valid_actions, observation)
 
         next_obseration, reward, done, winner = env.step(action)

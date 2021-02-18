@@ -454,7 +454,7 @@ class Simplified_Backgammon:
                     if self.is_valid(player, target_far2):
                         plays.add(((s1, s1 + r), (s1 + r, target_far1), (target_far1, target_far2)))
 
-                        if self.is_valid(player, target_far3):
+                        if self.is_valid(player , target_far3):
                             plays.add(((s1, s1 + r), (s1 + r, target_far1), (target_far1, target_far2), (target_far2, target_far3)))
 
                         for s2 in sources[1]:
@@ -1441,16 +1441,208 @@ class Simplified_Backgammon:
             return BLACK
         return None
 
+    def get_all_actions_normal(self, current_player, roll):
+        actions = set()
+        positions = self.players_positions[current_player]
+        combinations_positions = set(itertools.combinations(positions, 2))
+        for s in positions:
+            # Add double placements as combinations
+            # If there are more than one on the spot
+            if sum(self.board[s][0]) > 1:
+                combinations_positions.add((s, s))
+
+            # Actions for single pawns
+            actions.add(((s, s + roll[0]), (s + roll[0], s + roll[0] + roll[1])))
+            actions.add(((s, s - roll[0]), (s - roll[0], s - roll[0] + roll[1])))
+            
+            actions.add(((s, s + roll[1]), (s + roll[1], s + roll[0] + roll[1])))
+            actions.add(((s, s - roll[1]), (s - roll[1], s - roll[0] + roll[1])))
+
+            actions.add(((s, s - roll[0]), (s - roll[0], s - roll[0] - roll[1])))
+            actions.add(((s, s + roll[0]), (s + roll[0], s + roll[0] - roll[1])))
+
+            actions.add(((s, s - roll[1]), (s - roll[1], s - roll[0] - roll[1])))
+            actions.add(((s, s + roll[1]), (s + roll[1], s + roll[0] - roll[1])))
+
+            # Using only one die
+            actions.add(((s, s + roll[0])))
+            actions.add(((s, s + roll[1])))
+            actions.add(((s, s - roll[0])))
+            actions.add(((s, s - roll[1])))
+
+        # (1, 2)
+        # (1, 2)
+        # 1 -1> 2 | 1 -2> 3
+        # 2 -1> 3 | 2 -2> 4
+        for (s1, s2) in combinations_positions:
+            
+            t1 = s1 + roll[0]
+            t2 = s1 + roll[1]
+            t3 = s2 + roll[0]
+            t4 = s2 + roll[1]
+
+            t1n = s1 - roll[0]
+            t2n = s1 - roll[1]
+            t3n = s2 - roll[0]
+            t4n = s2 - roll[1]
+
+            # Actions for moving two pawns in same move
+            actions.add(((s1, t1), (s2, t4)))
+            actions.add(((s1, t1n), (s2, t4)))
+            actions.add(((s1, t1), (s2, t4n)))
+            actions.add(((s1, t1n), (s2, t4n)))
+
+            actions.add(((s1, t2), (s2, t3)))
+            actions.add(((s1, t2n), (s2, t3)))
+            actions.add(((s1, t2), (s2, t3n)))
+            actions.add(((s1, t2n), (s2, t3n)))
+        
+        print("Combinations:", combinations_positions)
+        return actions
+
     def get_all_actions(self, current_player, roll):
-        double_roll = False
+
+        actions = set()
+
+        positions = self.players_positions[current_player]
+
+        roll = (abs(roll[0]), abs(roll[1]))
+
+        double_dice = False
 
         if roll[0] == roll[1]:
-            double_roll = True
+            double_dice = True
 
-        if double_roll == False:
-            ...
+        # Find all moves using both dice on same pawn
+        if double_dice == False:
+
+            actions = self.get_all_actions_normal(current_player, roll)
         else:
-            ...
+            actions = set()
+            r = roll[0]
+
+            sources = {
+                1: [p for p in self.players_positions[current_player] if sum(self.board[p][0]) > 0],
+                2: [p for p in self.players_positions[current_player] if sum(self.board[p][0]) > 1],
+                3: [p for p in self.players_positions[current_player] if sum(self.board[p][0]) > 2],
+                4: [p for p in self.players_positions[current_player] if sum(self.board[p][0]) > 3],
+            }
+
+            combo2 = set(itertools.combinations(sources[1], 2))
+            combo3 = set(itertools.combinations(sources[1], 3))
+
+            print("Combo2:", combo2)
+            print("Combo3:", combo3)
+
+            for s1 in sources[4]:
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 + r), (s1, s1 + r)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 + r), (s1, s1 + r)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 + r), (s1, s1 + r)))
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 - r), (s1, s1 + r)))
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 + r), (s1, s1 - r)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 + r), (s1, s1 + r)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 - r), (s1, s1 + r)))
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 - r), (s1, s1 - r)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 - r), (s1, s1 + r)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 + r), (s1, s1 - r)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 + r), (s1, s1 - r)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 - r), (s1, s1 + r)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 - r), (s1, s1 - r)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 + r), (s1, s1 - r)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 - r), (s1, s1 - r)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 - r), (s1, s1 - r)))
+
+            for s1 in sources[3]:
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 + r)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 + r)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 + r)))
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 - r)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 + r)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 - r)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 - r)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 - r)))
+
+                for s2 in sources[1]:
+                    if s1 != s2:
+                        actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 + r), (s2, s2 + r)))
+                        actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 + r), (s2, s2 + r)))
+                        actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 + r), (s2, s2 + r)))
+                        actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 - r), (s2, s2 + r)))
+                        actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 + r), (s2, s2 + r)))
+                        actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 - r), (s2, s2 + r)))
+                        actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 - r), (s2, s2 + r)))
+                        actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 - r), (s2, s2 + r)))
+
+                        actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 + r), (s2, s2 - r)))
+                        actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 + r), (s2, s2 - r)))
+                        actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 + r), (s2, s2 - r)))
+                        actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 - r), (s2, s2 - r)))
+                        actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 + r), (s2, s2 - r)))
+                        actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 - r), (s2, s2 - r)))
+                        actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 - r), (s2, s2 - r)))
+                        actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 - r), (s2, s2 - r)))
+
+                target_far = s1 + r + r
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 + r), (s1 + r, target_far)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 + r), (s1 + r, target_far)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 + r), (s1 + r, target_far)))
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 - r), (s1 + r, target_far)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 + r), (s1 + r, target_far)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 - r), (s1 + r, target_far)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 - r), (s1 + r, target_far)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 - r), (s1 + r, target_far)))
+
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 + r), (s1 - r, target_far)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 + r), (s1 - r, target_far)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 + r), (s1 - r, target_far)))
+                actions.add(((s1, s1 + r), (s1, s1 + r), (s1, s1 - r), (s1 - r, target_far)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 + r), (s1 - r, target_far)))
+                actions.add(((s1, s1 + r), (s1, s1 - r), (s1, s1 - r), (s1 - r, target_far)))
+                actions.add(((s1, s1 - r), (s1, s1 + r), (s1, s1 - r), (s1 - r, target_far)))
+                actions.add(((s1, s1 - r), (s1, s1 - r), (s1, s1 - r), (s1 - r, target_far)))
+
+            for s1 in sources[2]:
+                
+                comb = [(s1, s1 + r), (s1, s1 - r), (s1, s1 + r), (s1, s1 - r)]
+                combi = set(itertools.combinations(comb, 2))
+                for c in combi:
+                    actions.add(c)
+
+                for (s2, s3) in combo2:
+                    if s1 != s2 and s1 != s3:
+                        # HARDCODE
+                        ...
+
+                for s2 in sources[2]:
+                    if s1 != s2 and self.is_valid(current_player, s2 + r):
+                        actions.add(((s1, s1 + r), (s1, s1 + r), (s2, s2 + r), (s2, s2 + r)))
+
+                for s2 in sources[1]:
+                    if s1 != s2 and self.is_valid(current_player, s2 + r):
+                        actions.add(((s1, s1 + r), (s1, s1 + r), (s2, s2 + r)))
+
+                        target_far = s1 + r + r
+                        if self.is_valid(current_player, target_far):
+                            actions.add(((s1, s1 + r), (s1, s1 + r), (s1 + r, target_far), (s2, s2 + r)))
+
+                        target_far = s2 + r + r
+                        if self.is_valid(current_player, target_far):
+                            actions.add(((s1, s1 + r), (s1, s1 + r), (s2, s2 + r), (s2 + r, target_far)))
+
+                target_far = s1 + r + r
+                if self.is_valid(current_player, target_far):
+                    actions.add(((s1, s1 + r), (s1, s1 + r), (s1 + r, target_far), (s1 + r, target_far)))
+
+                    target_far2 = s1 + r + r + r
+                    if self.is_valid(current_player, target_far2):
+                        actions.add(((s1, s1 + r), (s1, s1 + r), (s1 + r, target_far), (target_far, target_far2)))
+
+        
+        print("Actions:", len(actions))
+        print("Roll:", roll)
+        print("Current Player:", COLORS[current_player])
+        print("Positions:", positions)
+
         """
             We need to think about:
                 * Which color are the current player?
@@ -1459,6 +1651,7 @@ class Simplified_Backgammon:
                 * How many combinations are available? I.e. [(1, 4), (4, 6)] and [(1, 3), (3, 6)]
 
             Hopefully we can steal some code from the other functions?
+
         """
 
     def can_move_to(self, player, target):
