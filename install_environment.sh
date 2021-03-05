@@ -8,12 +8,12 @@ else
     echo "virtualenv is now sourced, will now clone backgammon gym if not already cloned"
 fi
 
-if [[-d "./gym-backgammon"]]; then
-    echo "gym-backgammon already cloned"
+if [[-d "./reduced_backgammon_gym"]]; then
+    echo "reduced_backgammon_gym already cloned"
 else
-    git clone "https://github.com/dellalibera/gym-backgammon.git"
+    git clone "https://github.com/sjyhne/reduced_backgammon_gym.git"
     echo "Successfully cloned the backgammon gym, will now install environment"
-    cd "./gym-backgammon"
+    cd "./reduced_backgammon_gym"
     pip install -e "."
 fi
 

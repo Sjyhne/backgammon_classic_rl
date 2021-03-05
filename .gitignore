@@ -129,4 +129,4 @@ dmypy.json
 .pyre/
 
 # Backgammon gym
-gym-backgammon/
+reduced_backgammon_gym

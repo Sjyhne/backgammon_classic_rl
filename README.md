@@ -175,5 +175,5 @@ print(q_table[1, 3, 0, 2, 0, 4, 0, 1, 1, 1, 0, 0, 1, 1, 2])
 # Man kan da også sjekke hvor mange gig ram det tar ved å kjøre linja under her:
 print((q_table.size * q_table.itemsize) / (1024**2))
 
-# Resultatet er 15 GB RAM
+# Resultatet er 15.4 elns GB RAM
 ```
