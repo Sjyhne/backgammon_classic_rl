@@ -40,14 +40,14 @@ class RandomAgent:
 
 class QAgent:
     
-    def __init__(self, obs_space, action_space, lr=0.0001, discount=0.9, epsilon=0.6):
+    def __init__(self, obs_space, action_space, lr=0.1, discount=0.9, epsilon=1):
         self.lr = lr
         self.discount = discount
         self.epsilon = epsilon
         
         # TODO: Implement
         self.start_epsilon_decay = 1
-        self.end_epsilon_decay = 10_000//2
+        self.end_epsilon_decay = 9_000//2
         self.epsilon_decay_value = self.epsilon/(self.end_epsilon_decay - self.start_epsilon_decay)
 
         self.Q = self.initiate_Q(obs_space, action_space)
@@ -123,6 +123,9 @@ class QAgent:
 
             if c == 64:
                 break
+
+        
+        self.epsilon -= self.epsilon_decay_value
         
         return obs, done, winner
             
@@ -172,7 +175,7 @@ COLORS = {WHITE: "White", BLACK: "Black"}
 
 agents = {WHITE: RandomAgent(), BLACK: QAgent(observation_space, action_space)}
 
-nr_winner = {WHITE: 0, BLACK: 0}
+nr_winner = {WHITE: [], BLACK: []}
 
 last_state = None
 
@@ -180,7 +183,6 @@ for _, i in tqdm(enumerate(range(10_000))):
 
     obs, current_agent = env.reset()
     winner, done = None, False
-
     #env.render()
 
     while not done:
@@ -199,18 +201,23 @@ for _, i in tqdm(enumerate(range(10_000))):
 
         if winner != None:
             #print("WINNER IS:", COLORS[winner])
-            nr_winner[winner] += 1
+            nr_winner[winner].append(1)
+            nr_winner[env.gym.get_opponent_color(winner)].append(0)
         
         env.change_player_turn()
 
         #env.render()
 
-    if i % 1000 == 0:
-        print(nr_winner)
-        print("BLACK:", nr_winner[BLACK] / (nr_winner[BLACK] + nr_winner[WHITE]))
-        print("WHITE:", nr_winner[WHITE] / (nr_winner[BLACK] + nr_winner[WHITE]))
+    if i % 20 == 0:
+        print()
+        print("BLACK:", sum(nr_winner[BLACK]) / (sum(nr_winner[BLACK]) + sum(nr_winner[WHITE])))
+        print("WHITE:", sum(nr_winner[WHITE]) / (sum(nr_winner[BLACK]) + sum(nr_winner[WHITE])))
 
 print(nr_winner)
 print(agents[BLACK].Q[last_state])
 print(agents[BLACK].get_best_action_given_observation(last_state))
+print(agents[BLACK].Q[last_state + agents[BLACK].get_best_action_given_observation(last_state)])
 print(last_state)
+
+print(sum(nr_winner[BLACK][9_000:]))
+print(sum(nr_winner[WHITE][9_000:]))
