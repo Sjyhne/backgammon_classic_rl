@@ -1,0 +1,4 @@
+[submodule "reduced_backgammon_gym"]
+	path = reduced_backgammon_gym
+	url = https://github.com/Sjyhne/reduced_backgammon_gym
+	branch = main

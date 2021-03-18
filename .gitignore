@@ -128,5 +128,3 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Backgammon gym
-reduced_backgammon_gym
