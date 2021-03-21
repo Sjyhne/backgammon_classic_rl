@@ -169,6 +169,8 @@ def run_game(env):
     obs, current_agent = env.reset()
     winner, done = None, False
 
+    m_rounds = 0
+
     while not done:
 
         agent = agents[env.current_agent]
@@ -183,6 +185,10 @@ def run_game(env):
         #     nr_winner[env.gym.get_opponent_color(winner)].append(0)
 
         env.change_player_turn()
+        m_rounds += 1
+
+        if m_rounds > 500:
+            return -1
 
     return winner
 
@@ -196,22 +202,24 @@ def run_multiple_games(n_threads):
     # Use threadpoolexecutor for easy management of threads
     results = []
     pool = mp.Pool(processes=n_threads)
-    for i in tqdm(enumerate(range(1000))):
+    for i in tqdm(enumerate(range(10))):
         result = [pool.map(run_game, envs)]
         results.extend(result[0])
     print(results)
     return results
 
 tic = time.perf_counter()
-result = run_multiple_games(7)
+result = run_multiple_games(3)
 toc = time.perf_counter()
 
 print("Time:", round(toc - tic, 2))
 
-for i in result:
+for idx, i in enumerate(result):
     if i == 0:
         nr_winner[0].append(1)
         nr_winner[1].append(0)
+    elif i == -1:
+        print("Game", idx, "did not finish")
     else:
         nr_winner[0].append(0)
         nr_winner[1].append(1)
