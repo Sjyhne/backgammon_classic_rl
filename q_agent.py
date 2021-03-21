@@ -2,6 +2,8 @@ import gym
 import numpy as np
 import random
 from tqdm import tqdm
+import time
+import multiprocessing as mp
 
 import matplotlib.pyplot as plt
 
@@ -30,7 +32,7 @@ class RandomAgent:
 
             for _ in actions:
                 action = random.choice(acts)
-                next_observation, reward, done, winner, executed = env.step(action)
+                next_observation, reward, done, winner, executed = environment.step(action)
                 if executed:
                     obs = next_observation
                     #print("EXECUTED:", action)
@@ -115,7 +117,7 @@ class QAgent:
                     action = self.get_best_action_given_observation(obs)
                     #print("BEST:", action)
                 
-                next_observation, reward, done, winner, executed = env.step(action)
+                next_observation, reward, done, winner, executed = environment.step(action)
 
                 rew += reward
                 
@@ -123,7 +125,6 @@ class QAgent:
                 self.update_Q(obs, action, new_q_value)
 
                 if executed:
-                    #print("EXECUTED:", action)
                     obs = next_observation
                     #environment.render()
                     break
@@ -144,43 +145,11 @@ class QAgent:
             
 
 
-env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
+#env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
 
-print(env.observation_space)
-
-# By printing the observation_space and action_space we see that
-# observation_space = [9, 9, 9, 9, 9, 9, 9, 2, 2, 3, 2] and action_space = [8, 8]
 observation_space = (9, 9, 9, 9, 9, 9, 9, 2, 2, 2, 2)
 action_space = (8, 8) # 0, ..., 7
 
-# SRC: 0, 1, 2, 3, 4, 5, 6, BAR
-# DST: 0, 1, 2, 3, 4, 5, 6, OFF
-
-# 5, 6, OFF
-# O, O
-# ROLL: (2, 1)
-# ACTION: (6, OFF)
-
-"""
-agent = QAgent(observation_space, action_space)
-agent.initiate_Q(observation_space, action_space)
-print(agent.Q.shape)
-print("Q table takes up:", round(((agent.Q.size * agent.Q.itemsize) / (1024 ** 2)), 1), "MB RAM")
-
-obs, current_player = tuple(env.reset())
-
-print((obs) + (action_space))
-
-print(agent.Q[tuple(obs)])
-
-for i, row in enumerate(agent.Q[obs]):
-    for idx, item in enumerate(row):
-        agent.update_Q(obs, (i, idx), idx - i * 0.1)
-
-print(agent.Q[obs])
-
-print(np.unravel_index(np.argmax(agent.Q[obs], axis=None), agent.Q[obs].shape))
-"""
 WHITE = 0
 BLACK = 1
 
@@ -195,7 +164,73 @@ last_state = None
 
 rews = []
 
-for _, i in tqdm(enumerate(range(EPISODES))):
+def run_game(env):
+    # Must create multiple envs, pass in one env per thread
+    obs, current_agent = env.reset()
+    winner, done = None, False
+
+    while not done:
+
+        agent = agents[env.current_agent]
+
+        if env.current_agent == 1:
+            obs, done, winner, rew = agents[1].apply_action(env, obs)
+        else:
+            obs, done, winner = agents[0].apply_random_action(env, obs)
+
+        # if winner != None:
+        #     nr_winner[winner].append(1)
+        #     nr_winner[env.gym.get_opponent_color(winner)].append(0)
+
+        env.change_player_turn()
+
+    return winner
+
+
+def run_multiple_games(n_threads):
+
+    # Create a environment for each thread
+
+    envs = [gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0') for i in range(n_threads)]
+
+    # Use threadpoolexecutor for easy management of threads
+    results = []
+    pool = mp.Pool(processes=n_threads)
+    for i in tqdm(enumerate(range(1000))):
+        result = [pool.map(run_game, envs)]
+        results.extend(result[0])
+    print(results)
+    return results
+
+tic = time.perf_counter()
+result = run_multiple_games(7)
+toc = time.perf_counter()
+
+print("Time:", round(toc - tic, 2))
+
+for i in result:
+    if i == 0:
+        nr_winner[0].append(1)
+        nr_winner[1].append(0)
+    else:
+        nr_winner[0].append(0)
+        nr_winner[1].append(1)
+
+wh = sum(nr_winner[0])
+bl = sum(nr_winner[1])
+
+print("WHITE:", wh)
+print("BLACK:", bl)
+print("RATIO:", bl / (wh + bl))
+
+
+
+"""if i % 100 == 0:
+    print()
+    print("BLACK:", sum(nr_winner[BLACK]) / (sum(nr_winner[BLACK]) + sum(nr_winner[WHITE])))
+    print("WHITE:", sum(nr_winner[WHITE]) / (sum(nr_winner[BLACK]) + sum(nr_winner[WHITE])))"""
+
+"""for _, i in tqdm(enumerate(range(EPISODES))):
 
     obs, current_agent = env.reset()
     winner, done = None, False
@@ -256,4 +291,4 @@ plt.show()
 
 plt.plot(wins)
 plt.title(f"WINS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
-plt.show()
+plt.show()"""
