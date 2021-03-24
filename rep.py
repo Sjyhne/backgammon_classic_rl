@@ -68,11 +68,44 @@ import numpy as np
     15: To Location Action
 """
 
+
+
+tmp = [int(i) for i in format(8, "b")]
+
+print(tmp)
+
+obs = (2, 0, 6, 0, 2, 0, 6, 0, 0, 1, 1)
+
+res = []
+for o in obs:
+    res.extend([int(i) for i in format(o, "b")])
+
+def obs_to_deep(obs):
+    res = []
+    for o in obs:
+        res += [int(i) for i in format(o, "b")]
+    
+    return res
+
+print(res)
+last_observations = [[(1, 2, 3), (4, 5, 6)], [(7, 8, 9), (10, 11, 12)]]
+
+def update(last_observations, last, last_next):
+    ls = last_observations
+    ls[0] = ls[1]
+    ls[1] = [last, last_next]
+
+    return ls
+
+print(last_observations)
+print(update(last_observations, (13, 14, 15), (16, 17, 18)))
+
+
 dice_one = [1, 1, 1, 1, 1, 2, 2, 2]
 dice_two = [1, 1, 1, 2, 2, 2, 2, 2]
 # (BAR) - 0, BAR - 1, BAR - 2, BAR - 3, BAR - 4, BAR - 5, BAR - 6, BAR - 7, BAR - OUT
 #                   1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 14, 15
-q_table = np.zeros((2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 9, 9), np.float16)
+q_table = np.zeros((9, 9, 9, 9, 9, 9, 9, 2, 2, 3, 3, 8, 8), np.float16)
 
 """
     La oss da si at jeg har lyst på q-verdien til action fra 1 til 2

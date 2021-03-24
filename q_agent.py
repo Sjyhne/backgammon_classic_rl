@@ -5,6 +5,8 @@ from tqdm import tqdm
 import time
 import multiprocessing as mp
 
+from numpy import save
+
 import matplotlib.pyplot as plt
 
 #[0, 1, 2, 3, 4]
@@ -12,7 +14,7 @@ import matplotlib.pyplot as plt
 # [2, 2, 2, 2]
 
 
-EPISODES = 500
+EPISODES = 2000  
 STEPS = 20
 
 class RandomAgent:
@@ -25,35 +27,40 @@ class RandomAgent:
         obs = observation
 
         for _ in range(num_actions):
-            actions = environment.get_actions()
+            actions = environment.gym.get_valid_actions(environment.current_agent)
             acts = [i[1] for i in actions]
             #print(environment.get_valid_actions())
             c = 0
+            if len(actions) > 0:
+                for _ in actions:
+                    action = random.choice(acts)
+                    next_observation, reward, done, winner, executed = environment.step(action)
+                    if executed:
+                        obs = next_observation
+                        break
+                    else:
+                        acts.remove(action)
+                        c += 1
 
-            for _ in actions:
-                action = random.choice(acts)
-                next_observation, reward, done, winner, executed = environment.step(action)
-                if executed:
-                    obs = next_observation
-                    #print("EXECUTED:", action)
+                if c == len(acts):
                     break
-                else:
-                    acts.remove(action)
-                    c += 1
-
-            if c == len(acts):
-                break
+            else:
+                done = False
+                winner = None
         
         return obs, done, winner
 
 class QAgent:
     
-    def __init__(self, obs_space, action_space, lr=0.1, discount=0.4, epsilon=0.8):
+    def __init__(self, obs_space, action_space, lr=0.1, discount=0.9, epsilon=1):
         self.lr = lr
         self.discount = discount
         self.epsilon = epsilon
 
         self.rewards = []
+        # Two last actions
+        self.last_action = None
+        self.last_obsvervations = None
         
         # TODO: Implement
         self.start_epsilon_decay = 1
@@ -83,8 +90,15 @@ class QAgent:
 
         return action
 
+    def update_last_actions(self, last_action, last_observation, last_next_observation):
+        self.last_action = last_action
+
+        self.last_observation = [last_observation, last_next_observation]
+
     def decay_epsilon(self):
-        self.epsilon -= self.epsilon_decay_value
+
+        if self.epsilon > 0.1:
+            self.epsilon -= self.epsilon_decay_value
 
     def get_new_q_value(self, obs, next_obs, reward, action):
         # The best possible future Q value
@@ -92,11 +106,11 @@ class QAgent:
         # The Q value for the current action
         current_q = self.Q[obs + action]
         # The new Q for this action in the given observation state
-        new_q = (1 - self.lr) * current_q + self.lr * (reward + self.discount * max_future_q)
+        new_q = current_q + self.lr * (reward + self.discount * max_future_q - current_q)
         # return the new Q value
         return new_q
 
-    def apply_action(self, environment, observation):
+    def apply_action(self, environment, observation, m_rounds):
         num_actions = environment.get_n_actions()
         executed = False
         obs = observation
@@ -111,6 +125,9 @@ class QAgent:
 
             for _ in range(len(actions)):
 
+                if environment.gym.off[environment.current_agent] == environment.gym.n_pieces:
+                    break
+
                 if random.uniform(0, 1) < self.epsilon:
                     action = self.get_random_action_given_observation(actions)
                 else:
@@ -122,16 +139,17 @@ class QAgent:
                 rew += reward
                 
                 new_q_value = self.get_new_q_value(obs, next_observation, reward, action)
+
                 self.update_Q(obs, action, new_q_value)
 
                 if executed:
+                    self.update_last_actions(action, obs, next_observation)
                     obs = next_observation
-                    #environment.render()
                     break
                 else:
                     if action in actions:
                         actions.remove(action)
-                        #print("REMOVED:", action)
+
                     c += 1
 
             if c == 64:
@@ -139,7 +157,7 @@ class QAgent:
 
         
         self.epsilon -= self.epsilon_decay_value
-        
+
         return obs, done, winner, rew
             
             
@@ -162,7 +180,7 @@ nr_winner = {WHITE: [], BLACK: []}
 
 last_state = None
 
-rews = []
+game_rewards = []
 
 def run_game(env):
     # Must create multiple envs, pass in one env per thread
@@ -171,14 +189,20 @@ def run_game(env):
 
     m_rounds = 0
 
+    rews = 0
+
     while not done:
 
         agent = agents[env.current_agent]
 
+        rew = 0
+
         if env.current_agent == 1:
-            obs, done, winner, rew = agents[1].apply_action(env, obs)
+            obs, done, winner, rew = agents[1].apply_action(env, obs, m_rounds)
         else:
             obs, done, winner = agents[0].apply_random_action(env, obs)
+
+        rews += rew
 
         # if winner != None:
         #     nr_winner[winner].append(1)
@@ -187,30 +211,42 @@ def run_game(env):
         env.change_player_turn()
         m_rounds += 1
 
-        if m_rounds > 500:
-            return -1
+        if m_rounds > 195:
+            print(COLORS[env.current_agent])
+            print(env.get_valid_actions())
+            env.render()
+        if m_rounds == 200:
+            env.render()
+            return -1, rews, m_rounds
 
-    return winner
+        if done:
+            if winner != BLACK:
+                new_q = agents[BLACK].get_new_q_value(agents[1].last_observation[0], agents[1].last_observation[1], -1, agents[1].last_action)
+                agents[BLACK].update_Q(agents[BLACK].last_observation[0], agents[BLACK].last_action, new_q)
+    #print()
+    #print(f"Winner: {winner}, Rewards: {rews}, Rounds: {m_rounds}")
+    return winner, rews, m_rounds
 
-
-def run_multiple_games(n_threads):
-
-    # Create a environment for each thread
-
-    envs = [gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0') for i in range(n_threads)]
-
-    # Use threadpoolexecutor for easy management of threads
-    results = []
-    pool = mp.Pool(processes=n_threads)
-    for i in tqdm(enumerate(range(10))):
-        result = [pool.map(run_game, envs)]
-        results.extend(result[0])
-    print(results)
-    return results
 
 tic = time.perf_counter()
-result = run_multiple_games(3)
+result = []
+rounds = []
+env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
+for _, i in tqdm(enumerate(range(EPISODES))):
+    winner, game_reward, m_rounds = run_game(env)
+    result.append(winner)
+    game_rewards.append(game_reward)
+    rounds.append(m_rounds)
+    if i % 50 == 0:
+        print(agents[1].Q[2, 0, 6, 0, 2, 0, 6, 0, 0, 1, 0])
+        print(agents[1].Q[2, 0, 6, 0, 2, 5, 5, 0, 0, 1, 0])
+        try:
+            print("WIN RATIO: ------------------------------------ ", sum(result[-50:])/50)
+        except:
+            print("WOPS")
 toc = time.perf_counter()
+
+# save(f"q_tables/q_table_{EPISODES}.npy", agents[1].Q)
 
 print("Time:", round(toc - tic, 2))
 
@@ -231,7 +267,22 @@ print("WHITE:", wh)
 print("BLACK:", bl)
 print("RATIO:", bl / (wh + bl))
 
+avgs = [sum(game_rewards[x:x + STEPS])/STEPS for x in range(0, len(game_rewards), STEPS)]
+wins = [sum(nr_winner[BLACK][x:x + STEPS])/STEPS for x in range(0, len(nr_winner[BLACK]), STEPS)]
+rounds = [sum(rounds[x:x + STEPS])/STEPS for x in range(0, len(rounds), STEPS)]
 
+
+plt.plot(avgs)
+plt.title(f"AVG REWARDS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
+plt.show()
+
+plt.plot(wins)
+plt.title(f"WINS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
+plt.show()
+
+plt.plot(wins)
+plt.title(f"AVG ROUNDS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
+plt.show()
 
 """if i % 100 == 0:
     print()
