@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import math
 
 """
     Hvis vi gjør det samme som over, men på en litt annen måte får vi redusert problemet veldig, men det er fortsatt altfor stort
@@ -68,7 +70,20 @@ import numpy as np
     15: To Location Action
 """
 
+EPSILON_START = 1000
 
+EPSILON_END = 100
+
+test_res = []
+
+for i in np.linspace(0, 6.28/4, 1000):
+    test_res.append(math.cos(i))
+
+for i in range(10):
+    print(np.linspace(0, 6.28/4, 10)[i])
+
+plt.plot(test_res)
+plt.show()
 
 tmp = [int(i) for i in format(8, "b")]
 
