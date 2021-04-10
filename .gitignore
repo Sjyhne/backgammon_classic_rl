@@ -130,9 +130,4 @@ dmypy.json
 
 q_tables/
 
-results/
-
-
-wins: 4
-
-loss: 2
+current/results/

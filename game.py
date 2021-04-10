@@ -3,6 +3,9 @@ import random
 
 env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
 
+import numpy as np
+from numpy import load
+
 done = False
 
 obs, current_agent = env.reset()
@@ -12,48 +15,24 @@ WHITE = 0
 
 COLORS = {WHITE: "White", BLACK: "Black"}
 
-class RandomAgent:
-    def __init__(self):
-        ...
-
-    def apply_random_action(self, environment):
-        num_actions = environment.get_n_actions()
-        executed = False
-        obs = environment.gym.get_current_observation(env.current_agent)
-
-        for _ in range(num_actions):
-            actions = environment.get_actions()
-            acts = [i[1] for i in actions]
-            #print(environment.get_valid_actions())
-            c = 0
-
-            for _ in actions:
-                action = random.choice(acts)
-                next_observation, reward, done, winner, executed = env.step(action)
-                if executed:
-                    obs = next_observation
-                    print("EXECUTED:", action)
-                    break
-                else:
-                    acts.remove(action)
-                    c += 1
-
-            if c == len(acts):
-                break
-        
-        return obs, done, winner
+from current.agents import RandomAgent, QAgent
 
 
 env.render()
 
-random_agent = RandomAgent()
+obs_space = (9, 9, 9, 9, 9, 9, 9, 2, 2, 2, 2)
+a_space = (8, 8)
+
+print("Loading Agent")
+q_agent = QAgent(obs_space, a_space, load_path="black.npy", epsilon=0, train=False)
+print("Successfullt loaded Agent")
 
 while not done:
 
     print("Current agent:", COLORS[env.current_agent])
 
     if env.current_agent == BLACK:
-        obs, done, winner = random_agent.apply_random_action(env)
+        obs, done, winner, rew = q_agent.execute_action(env)
         env.render()
 
     else:

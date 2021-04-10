@@ -5,7 +5,7 @@ import numpy as np
 
 
 
-data = load('q_tables/q_table_500.npy')
+data = load('black.npy')
 print("Data finished loading...")
 print()
 print("Looking for min and max values in the array")

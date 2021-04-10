@@ -5,6 +5,7 @@ from tqdm import tqdm
 import time
 import multiprocessing as mp
 import math
+from numpy import load
 
 from numpy import save
 
@@ -15,8 +16,8 @@ import matplotlib.pyplot as plt
 # [2, 2, 2, 2]
 
 
-EPISODES = 60_000 
-STEPS = 2000
+EPISODES = 500
+STEPS = 50
 
 class RandomAgent:
     def __init__(self):
@@ -56,7 +57,7 @@ class RandomAgent:
 
 class QAgent:
     
-    def __init__(self, obs_space, action_space, lr=0.0001, discount=0.95, epsilon=1):
+    def __init__(self, obs_space, action_space, lr=0.0001, discount=0.95, epsilon=0):
         self.lr = lr
         self.discount = discount
         self.epsilon = epsilon
@@ -82,7 +83,7 @@ class QAgent:
     
     def initiate_Q(self, obs_space, action_space):
         # Initiates the Q table using the obs space and the action space
-        return(np.zeros((obs_space + action_space), np.float16))
+        return load('q_tables/q_table_20000_2000_white.npy')
 
     def update_Q(self, obs, action, value):
         # Updates the Q table
@@ -141,9 +142,9 @@ class QAgent:
                     
                 if random.uniform(0, 1) < self.epsilon:
                     action = self.get_random_action_given_observation(actions)
+                    print("RANDOM ACTION")
                 else:
                     action = self.get_best_action_given_observation(obs)
-                    #print("BEST:", action)
                 
                 next_observation, reward, done, winner, executed = environment.step(action)
 
@@ -157,7 +158,6 @@ class QAgent:
                     self.update_last_actions(action, obs, next_observation)
                     obs = next_observation
                     self.actions_executed[action] += 1
-                    #print("Q EXECUTED:", action)
                     break
                 else:
                     if action in actions:
@@ -185,7 +185,7 @@ BLACK = 1
 COLORS = {WHITE: "White", BLACK: "Black"}
 
 
-agents = {WHITE: RandomAgent(), BLACK: QAgent(observation_space, action_space)}
+agents = {BLACK: RandomAgent(), WHITE: QAgent(observation_space, action_space)}
 
 nr_winner = {WHITE: [], BLACK: []}
 
@@ -201,6 +201,8 @@ def run_game(env, episode):
     m_rounds = 0
 
     rews = 0
+    
+    #env.render()
 
     while not done:
 
@@ -208,10 +210,10 @@ def run_game(env, episode):
 
         rew = 0
 
-        if env.current_agent == 1:
-            obs, done, winner, rew = agents[1].apply_action(env, obs, m_rounds)
+        if env.current_agent == WHITE:
+            obs, done, winner, rew = agents[WHITE].apply_action(env, obs, m_rounds)
         else:
-            obs, done, winner = agents[0].apply_random_action(env, obs)
+            obs, done, winner = agents[BLACK].apply_random_action(env, obs)
 
         rews += rew
 
@@ -220,6 +222,8 @@ def run_game(env, episode):
         #     nr_winner[env.gym.get_opponent_color(winner)].append(0)
 
         env.change_player_turn()
+
+        #env.render()
 
         m_rounds += 1
 
@@ -232,20 +236,20 @@ def run_game(env, episode):
             return -1, rews, m_rounds
 
         if done:
-            if winner == WHITE:
-                new_q = agents[BLACK].get_new_q_value(agents[1].last_observation[0], agents[1].last_observation[1], -1, agents[1].last_action)
-                agents[BLACK].update_Q(agents[BLACK].last_observation[0], agents[BLACK].last_action, new_q)
-                agents[BLACK].decay_epsilon(episode, EPISODES)
+            if winner == BLACK:
+                new_q = agents[WHITE].get_new_q_value(agents[WHITE].last_observation[0], agents[WHITE].last_observation[1], -1, agents[WHITE].last_action)
+                agents[WHITE].update_Q(agents[WHITE].last_observation[0], agents[WHITE].last_action, new_q)
+                #agents[BLACK].decay_epsilon(episode, EPISODES)
                 return winner, rews, m_rounds
-            elif winner == BLACK:
-                new_q = agents[BLACK].get_new_q_value(agents[1].last_observation[0], agents[1].last_observation[1], 1, agents[1].last_action)
-                agents[BLACK].update_Q(agents[BLACK].last_observation[0], agents[BLACK].last_action, new_q)
-                agents[BLACK].decay_epsilon(episode, EPISODES)
+            elif winner == WHITE:
+                new_q = agents[WHITE].get_new_q_value(agents[WHITE].last_observation[0], agents[WHITE].last_observation[1], 1, agents[WHITE].last_action)
+                agents[WHITE].update_Q(agents[WHITE].last_observation[0], agents[WHITE].last_action, new_q)
+                #agents[BLACK].decay_epsilon(episode, EPISODES)
                 return winner, rews, m_rounds
             else:
-                new_q = agents[BLACK].get_new_q_value(agents[1].last_observation[0], agents[1].last_observation[1], -1, agents[1].last_action)
-                agents[BLACK].update_Q(agents[BLACK].last_observation[0], agents[BLACK].last_action, new_q)
-                agents[BLACK].decay_epsilon(episode, EPISODES)
+                new_q = agents[WHITE].get_new_q_value(agents[WHITE].last_observation[0], agents[WHITE].last_observation[1], -1, agents[WHITE].last_action)
+                agents[WHITE].update_Q(agents[WHITE].last_observation[0], agents[WHITE].last_action, new_q)
+                #agents[BLACK].decay_epsilon(episode, EPISODES)
                 return winner, rews, m_rounds
 
         
@@ -266,18 +270,18 @@ for _, i in tqdm(enumerate(range(EPISODES))):
     result.append(winner)
     game_rewards.append(game_reward)    
     rounds.append(m_rounds)
-    knockouts.append(agents[BLACK].knockouts)
-    agents[BLACK].knockouts = 0
+    knockouts.append(agents[WHITE].knockouts)
+    agents[WHITE].knockouts = 0
     if i % STEPS == 0:
         # print(agents[1].Q[2, 0, 6, 0, 2, 0, 6, 0, 0, 1, 0])
         # print(agents[1].Q[2, 0, 6, 0, 2, 5, 5, 0, 0, 1, 0])
         try:
-            print("WIN RATIO: ------------------------------------ ", sum(result[-STEPS:])/STEPS)
+            print("WIN RATIO: ------------------------------------ ", 1 - sum(result[-STEPS:])/STEPS)
         except:
             print("WOPS")
 toc = time.perf_counter()
 
-save(f"q_tables/q_table_{EPISODES}_{STEPS}_.npy", agents[1].Q)
+#save(f"q_tables/q_table_{EPISODES}_{STEPS}_.npy", agents[1].Q)
 
 print("Time:", round(toc - tic, 2))
 
@@ -299,35 +303,35 @@ print("BLACK:", bl)
 print("RATIO:", bl / (wh + bl))
 
 avgs = [sum(game_rewards[x:x + STEPS])/STEPS for x in range(0, len(game_rewards), STEPS)]
-wins = [sum(nr_winner[BLACK][x:x + STEPS])/STEPS for x in range(0, len(nr_winner[BLACK]), STEPS)]
+wins = [sum(nr_winner[WHITE][x:x + STEPS])/STEPS for x in range(0, len(nr_winner[WHITE]), STEPS)]
 rounds = [sum(rounds[x:x + STEPS])/STEPS for x in range(0, len(rounds), STEPS)]
 knockouts = [sum(knockouts[x:x + STEPS])/STEPS for x in range(0, len(knockouts), STEPS)]
 
 
 plt.plot(avgs)
-plt.title(f"AVG REWARDS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
+plt.title(f"AVG REWARDS | EP: {EPISODES}, lr:{agents[WHITE].lr}, eps: {agents[WHITE].epsilon}, stps: {STEPS}, disc: {agents[WHITE].discount}")
 plt.show()
 
 plt.plot(wins)
-plt.title(f"WINS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
+plt.title(f"WINS | EP: {EPISODES}, lr:{agents[WHITE].lr}, eps: {agents[WHITE].epsilon}, stps: {STEPS}, disc: {agents[WHITE].discount}")
 plt.show()
 
-plt.plot(wins)
-plt.title(f"AVG ROUNDS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
+plt.plot(rounds)
+plt.title(f"AVG ROUNDS | EP: {EPISODES}, lr:{agents[WHITE].lr}, eps: {agents[WHITE].epsilon}, stps: {STEPS}, disc: {agents[WHITE].discount}")
 plt.show()
 
-plt.plot(agents[1].epsilons)
-plt.title(f"EPSILONS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
+plt.plot(agents[WHITE].epsilons)
+plt.title(f"EPSILONS | EP: {EPISODES}, lr:{agents[WHITE].lr}, eps: {agents[WHITE].epsilon}, stps: {STEPS}, disc: {agents[WHITE].discount}")
 plt.show()
 
 plt.plot(knockouts)
-plt.title(f"KNOCKOUTS | EP: {EPISODES}, lr:{agents[BLACK].lr}, eps: {agents[BLACK].epsilon}, stps: {STEPS}, disc: {agents[BLACK].discount}")
+plt.title(f"KNOCKOUTS | EP: {EPISODES}, lr:{agents[WHITE].lr}, eps: {agents[WHITE].epsilon}, stps: {STEPS}, disc: {agents[WHITE].discount}")
 plt.show()
 
-plt.imshow(agents[BLACK].actions_executed, cmap="hot", interpolation="nearest")
+plt.imshow(agents[WHITE].actions_executed, cmap="hot", interpolation="nearest")
 plt.show()
 
-print(len(agents[1].epsilons))
+print(len(agents[WHITE].epsilons))
 
 """if i % 100 == 0:
     print()

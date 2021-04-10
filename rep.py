@@ -76,11 +76,14 @@ EPSILON_END = 100
 
 test_res = []
 
-for i in np.linspace(0, 6.28/4, 1000):
-    test_res.append(math.cos(i))
+# for i in np.linspace(1, 0, 1000):
+#     test_res.append(abs(i**2))
 
-for i in range(10):
-    print(np.linspace(0, 6.28/4, 10)[i])
+for i in range(40_000):
+    if math.cos(np.linspace(0, 6.4/4, 40_000)[i]) > 0:
+        test_res.append(math.cos(np.linspace(0, 6.4/4, 40_000)[i]))
+    else:
+        test_res.append(0)
 
 plt.plot(test_res)
 plt.show()

@@ -11,6 +11,20 @@ Solving backgammon using classical reinforcement learning techniques
     * :-)
 
 
+Sander mot Random:
+Win: 34
+Lose: 11
+Current winration: 34/45 = 0.75555
+
+Selfnotes:
+Graph som plotter absolutt sum av q table over tid
+
+Prøve ut self play hvor det er to forskjellige agenter, og statene ikke blir "swappet". Som er motsatt av hvordan jeg har gjort det nå. Hvor det er én og samme agent som spiller mot seg selv, mens staten og observation flippes slik at den tror den alltid spiller for svart.
+
+Kult å sammenligne disse mot hverandre!
+
+
+
 Must explore and understand temporal difference learning and policy gradient learning. Find examples of implementations/possible algorithms to use.
 
 What is Monte Carlo and what is Dynamic Programming and what is Markov Decision Policies
