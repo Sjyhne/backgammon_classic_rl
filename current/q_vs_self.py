@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from numpy import load, asarray, save, savetxt
 import matplotlib.pyplot as plt
+import os
 
 # Basic imports
 import random
@@ -14,12 +15,6 @@ from agents import RandomAgent, QAgent, QAgentFlip
 
 from utils import flip_action, flip_observation
 
-"""
-    Hvor må ting flippes?
-
-    1. Jeg får inn observation som IKKE er flipped
-        Den må flippes 
-"""
 
 def run_game(env, episode, episodes, agents, render=False):
     WHITE = 0
@@ -39,7 +34,7 @@ def run_game(env, episode, episodes, agents, render=False):
         reward = 0
 
         if env.current_agent == BLACK:
-            _, done, winner, rew = agents[env.current_agent].execute_action(env)
+            _, done, winner, rew = agents[env.current_agent].execute_action(env, flip=False)
         else:
             _, done, winner, rew = agents[env.current_agent].execute_action(env, flip=True)
 
@@ -76,12 +71,12 @@ def run_game(env, episode, episodes, agents, render=False):
     return winner, rewards, rounds
 
 
-def dual_plot(dict, steps, title=""):
+def dual_plot(dict, steps, title="", plot_path="./"):
     WHITE = 0
     BLACK = 1
 
-    white_wins = [sum(dict[WHITE][x:x + steps])/steps for x in range(-1, len(dict[WHITE]), steps)]
-    black_wins = [sum(dict[BLACK][x:x + steps])/steps for x in range(-1, len(dict[BLACK]), steps)]
+    white_wins = [sum(dict[WHITE][x:x + steps])/steps for x in range(0, len(dict[WHITE]), steps)]
+    black_wins = [sum(dict[BLACK][x:x + steps])/steps for x in range(0, len(dict[BLACK]), steps)]
 
     plt.plot(white_wins, label="White")
     plt.plot(black_wins, label="Black")
@@ -90,59 +85,63 @@ def dual_plot(dict, steps, title=""):
 
     plt.title(title)
 
-    plt.show()
+    plt.savefig(plot_path + "/" + title.lower())
 
-    ...
+    plt.close()
 
-def single_plot(lst, steps, title=""):
-    lst = [sum(lst[x:x + steps])/steps for x in range(-1, len(lst), steps)]
+def single_plot(lst, steps, title="", plot_path="./"):
+    lst = [sum(lst[x:x + steps])/steps for x in range(0, len(lst), steps)]
     plt.plot(lst)
     plt.title(title)
-    plt.show()
+    plt.savefig(plot_path + "/" + title.lower())
+    plt.close()
 
-def plot_qs(qs):
-    WHITE = 0
-    BLACK = 1
+def plot_qs(qs, plot_path):
 
-    white_qs = qs[WHITE]
-    black_qs = qs[BLACK]
+    plt.plot(qs, label="Black")
+    plt.title("Q.sum()")
+    plt.savefig(plot_path + "/" + "Q sum")
+    plt.close()
 
-    plt.plot(white_qs, label="White")
-    plt.plot(black_qs, label="Black")
-
+def plot_actions(random_actions, q_actions, steps, plot_path):
+    r_actions = [sum(random_actions[x:x + steps])/steps for x in range(0, len(random_actions), steps)]
+    q_actions = [sum(q_actions[x:x + steps])/steps for x in range(0, len(q_actions), steps)]
+    plt.plot(r_actions, label="Random Actions")
+    plt.plot(q_actions, label="Q Actions")
     plt.legend()
+    plt.title("Random vs. Q Actions")
+    plt.savefig(plot_path + "/" + "Random vs Q Actions".lower())
+    plt.close()
 
-    plt.title("abs(Q.sum())")
-    plt.show()
+def save_list_to_file(lst, name, path):
 
+    file_path = os.path.join(path, name)
 
-def dual_action_plot(white_actions, black_actions):
-    f, subplot = plt.subplots(2)
-    subplot[0].imshow(white_actions, cmap="hot", interpolation="nearest")
-    subplot[1].imshow(black_actions, cmap="hot", interpolation="nearest")
-    subplot[0].set_title("White")
-    subplot[1].set_title("Black")
+    with open(file_path, "w") as f:
+        for item in lst:
+            f.write(f"{item}\n")
 
-    plt.show()
-
-def run(saveFiles=False):
+def run(saveFile=False):
     # Predefined variables
     obs_space = (9, 9, 9, 9, 9, 9, 9, 2, 2, 2, 2)
     a_space = (8, 8)
-    episodes = 10_000
+    episodes = 300
     steps = episodes//20
     WHITE = 0
     BLACK = 1
     COLORS = {WHITE: "White", BLACK: "Black"}
     # Define the agents
     print("Initiating agents")
-    agent = QAgentFlip(obs_space, a_space)
+    agent = QAgentFlip(obs_space, a_space, load_path="/home/sjyhne/skole/2sem/ikt441/backgammon_classic_rl/current/results/black.npy")
     agents = {WHITE: agent, BLACK: agent}
     print("Successfully initiated the agents")
     # For plotting later
     wins = {WHITE: [], BLACK: []}
-    rewards = {WHITE: [], BLACK: []}
-    qs = {WHITE: [], BLACK: []}
+    rewards = []
+    qs = []
+
+    Q_actions = []
+    random_actions = []
 
     total_rounds = []
     result = []
@@ -152,7 +151,10 @@ def run(saveFiles=False):
 
     for _, episode in tqdm(enumerate(range(episodes))):
 
-        winner, game_rewards, rounds = run_game(env, episode, episodes, agents)
+        winner, game_rewards, rounds = run_game(env, episode, episodes, agents, render=False)
+
+        #Q_actions.append(agents[BLACK].Q_actions)
+        #random_actions.append(agents[BLACK].random_actions)
 
         if winner == BLACK:
             wins[BLACK].append(1)
@@ -165,8 +167,7 @@ def run(saveFiles=False):
             wins[WHITE].append(0)
             print("DRAW/TIMEOUT", "...", winner)
 
-        rewards[BLACK].append(game_rewards[BLACK])
-        rewards[WHITE].append(game_rewards[WHITE])
+        rewards.append(game_rewards)
 
         total_rounds.append(rounds)
 
@@ -175,12 +176,12 @@ def run(saveFiles=False):
 
         if episode % steps == 0 and episode != 0:
             print()
-            print("WIN BLACK RATIO: ------------------------------------ ", sum(result[-steps:])/steps)
-            print("WIN WHITE RATIO: ------------------------------------ ", 1 - sum(result[-steps:])/steps)
+            print("EPSILON        : ------------------------------------ ", round(agents[BLACK].epsilon, 2))
+            print("WIN BLACK RATIO: ------------------------------------ ", round(sum(result[-steps:])/steps, 3))
+            print("WIN WHITE RATIO: ------------------------------------ ", round(1 - sum(result[-steps:])/steps, 3))
 
-        # if episode % (episodes//5) == 0 and episode != 0:
-        #     qs[WHITE].append(np.absolute(agents[WHITE].Q).sum())
-        #     qs[BLACK].append(np.absolute(agents[BLACK].Q).sum())
+        #if episode % (episodes//15) == 0 and episode != 0:
+        #    qs.append(np.absolute(agents[BLACK].Q.sum()))
 
 
     toc = time.perf_counter()
@@ -190,17 +191,48 @@ def run(saveFiles=False):
     print(f"WHITE WON {round(sum(wins[WHITE])/(sum(wins[WHITE]) + sum(wins[BLACK])), 2)}%")
     print(f"BLACK WON {round(sum(wins[BLACK])/(sum(wins[WHITE]) + sum(wins[BLACK])), 2)}%")
 
-    if saveFiles == True:
-        save(f"q_tables/self_v_q_{episodes}_{steps}_black.npy", agents[BLACK].Q)
-        #save(f"q_tables/duo_q_{episodes}_{steps}_black.npy", agents[BLACK].Q)
+    # print(agents[BLACK].Q[2, 0, 6, 0, 2, 0, 6, 0, 0, 1, 1])
 
+    #if saveFile and agents[BLACK].train:
+        #save(f"q_tables/new_q_{episodes}_{steps}_white.npy", agents[WHITE].Q)
+        #save(f"q_tables/ran_v_q_{episodes}_{steps}_black.npy", agents[BLACK].Q)
 
-    dual_plot(wins, steps, "Wins")
-    dual_plot(rewards, steps, "Rewards")
-    single_plot(total_rounds, steps, " Avg Rounds")
-    dual_action_plot(agents[0].actions_executed, agents[1].actions_executed)
+    # plot_qs(qs)
+
+    if saveFile:
+        directory = f"ran_v_q_{episodes}_{steps}_black"
+        parent_directory = "./current/results"
+        path = os.path.join(parent_directory, directory)
+        os.mkdir(path)
+
+        npy_path = os.path.join(path, "black.npy")
+        save(npy_path, agents[BLACK].Q)
+
+        save_list_to_file(wins[WHITE], "white_wins.txt", path)
+        save_list_to_file(wins[BLACK], "black_wins.txt", path)
+
+        save_list_to_file(rewards, "rewards.txt", path)
+        save_list_to_file(total_rounds, "rounds.txt", path)
+        save_list_to_file(agents[BLACK].epsilons, "epsilons.txt", path)
+        save_list_to_file(qs, "black_qs.txt", path)
+        save_list_to_file(Q_actions, "Q_actions.txt", path)
+        save_list_to_file(random_actions, "random_actions.txt", path)
+
+        # Save plots to plots folder
+        plot_path = os.path.join(path, "plots")
+        os.mkdir(plot_path)
+
+        single_plot(rewards, steps, "Rewards", plot_path)
+        single_plot(total_rounds, steps, " Avg Rounds", plot_path)
+        single_plot(agents[BLACK].epsilons, steps, "Epsilons", plot_path)
+        dual_plot(wins, steps, "Wins", plot_path)
+        plot_actions(random_actions, Q_actions, steps, plot_path)
+        plot_qs(qs, plot_path)
+
+        with open(path + "/info.txt", "w") as f:
+            f.write(f"Epsilon: {agents[BLACK].epsilon}, Discount: {agents[BLACK].discount}, LR: {agents[BLACK].lr}")
 
 
 
 if __name__ == "__main__":
-    run(saveFiles=True)
+    run(saveFile=False)

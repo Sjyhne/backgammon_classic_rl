@@ -12,7 +12,7 @@ class QAgent():
     # To make a play. This is included in training because it increases the training experience for each
     # Observation met when the best q value is not a valid play.
     def __init__(self, obs_space, action_space, lr=0.0001, discount=0.9, epsilon=1, train=True, load_path=None, print=False):
-        
+
         # Agent configuration
         self.lr = lr
         self.discount = discount
@@ -50,7 +50,7 @@ class QAgent():
     def update_last_actions(self, last_action, last_observation, last_next_observation):
         self.last_action = last_action
         self.last_observations = [last_observation, last_next_observation]
-    
+
     def get_best_action(self, obs):
         action = np.unravel_index(np.argmax(self.Q[obs], axis=None), self.Q[obs].shape)
         return action
@@ -59,7 +59,7 @@ class QAgent():
         return random.choice(actions)
 
     def decay_epsilon(self, episode, episodes):
-        
+
         # Logging
         self.epsilons.append(self.epsilon)
 
@@ -124,19 +124,19 @@ class QAgent():
 
                     if executed:
                         self.random_actions += 1
-                    
+
                     if self.step(obs, next_obs, reward, done, winner, executed, random_action, random_actions):
                         break
                     else:
                         continue
             else:
-                
+
                 action = self.get_best_action(obs)
                 next_obs, reward, done, winner, executed = env.step(action)
 
                 if executed:
                     self.Q_actions += 1
-                
+
                 if not executed and self.print:
                     if len(env.get_valid_actions()) != 0:
                         print("Failed to execute:", action, "Possible:", env.get_valid_actions(), "Dice:", env.gym.non_used_dice)
@@ -157,7 +157,7 @@ class QAgent():
 
                         # Try to perform the random action
                         next_obs, reward, done, winner, executed = env.step(random_action)
-                        
+
                         if executed:
                             self.random_actions += 1
 
@@ -167,7 +167,7 @@ class QAgent():
                             continue
                 else:
                     self.step(obs, next_obs, reward, done, winner, executed, action, random_actions)
-        
+
         return obs, done, winner, sum(self.rewards)
 
 
@@ -177,7 +177,7 @@ class QAgentFlip():
     # To make a play. This is included in training because it increases the training experience for each
     # Observation met when the best q value is not a valid play.
     def __init__(self, obs_space, action_space, lr=0.0001, discount=0.95, epsilon=1, train=True, load_path=None):
-        
+
         # Agent configuration
         self.lr = lr
         self.discount = discount
@@ -211,7 +211,7 @@ class QAgentFlip():
     def update_last_actions(self, last_action, last_observation, last_next_observation):
         self.last_action = last_action
         self.last_observations = [last_observation, last_next_observation]
-    
+
     def get_best_action(self, obs):
         action = np.unravel_index(np.argmax(self.Q[obs], axis=None), self.Q[obs].shape)
         return action
@@ -220,7 +220,7 @@ class QAgentFlip():
         return random.choice(actions)
 
     def decay_epsilon(self, episode, episodes):
-        
+
         # Logging
         self.epsilons.append(self.epsilon)
 
@@ -262,7 +262,7 @@ class QAgentFlip():
         num_actions = env.get_n_actions()
 
         for i in range(num_actions):
-            
+
             # There are only flipped actions in random actions now - Therefore must be flipped
             # Before execution
 
@@ -296,7 +296,7 @@ class QAgentFlip():
 
                     if flip:
                         next_obs = flip_observation(next_obs, env.gym.n_pieces, env.gym.n_spots)
-                    
+
                     if self.step(obs, next_obs, reward, done, winner, executed, random_action, random_actions):
                         break
                     else:
@@ -334,14 +334,14 @@ class QAgentFlip():
                         if flip:
                             next_obs = flip_observation(next_obs, env.gym.n_pieces, env.gym.n_spots)
 
-                        
+
                         if self.step(obs, next_obs, reward, done, winner, executed, random_action, random_actions):
                             break
                         else:
                             continue
                 else:
                     self.step(obs, next_obs, reward, done, winner, executed, action, random_actions)
-        
+
         return obs, done, winner, sum(self.rewards)
 
 
@@ -379,5 +379,5 @@ class RandomAgent:
 
                 if c == len(acts):
                     break
-        
+
         return obs, done, winner

@@ -2,24 +2,23 @@
 
 def flip_observation(observation: tuple, n_pieces: int, n_spots: int) -> tuple:
 
-    obs, servation = list(observation)[:7], list(observation)[7:]
+    obs, bar_spots, dice = list(observation)[:7], list(observation)[7:9], list(observation)[9:]
 
-    # First reverse the observation
-    rev_obs = list(reversed(obs))
-
-    # Then flip the number of players based on the n_pieces variable
     flipped_obs = []
-
-    for o in rev_obs:
+    for o in obs:
         if o > n_pieces:
             flipped_obs.append(o - n_pieces)
         elif o > 0 and o <= n_pieces:
             flipped_obs.append(o + n_pieces)
         else:
             flipped_obs.append(o)
-    
-    # Now the observation has been flipped
-    return tuple(flipped_obs + servation)
+
+    rev_flipped_obs = list(reversed(flipped_obs))
+    rev_bar_spots = list(reversed(bar_spots))
+
+    result = rev_flipped_obs + rev_bar_spots + dice
+
+    return tuple(result)
 
 def flip_action(action: tuple, n_spots: int) -> tuple:
     # This takes in an action that is based on a flipped observation
@@ -43,18 +42,22 @@ def deepify_observation(obs):
     res = []
     for o in obs:
         res += [int(i) for i in format(o, "b")]
-    
+
     return res
 
 if __name__ == "__main__":
-    obs = [1, 1, 5, 0, 2, 0, 7, 0, 0, 1, 0]
+    obs = [1, 0, 5, 0, 3, 5, 6, 1, 0, 1, 1]
 
-    flipped_observation = flip_observation(obs, 4, 7)
+    print(obs)
+    print(flip_observation(obs, 4, 7))
 
-    flipped_flipped_obseration = flip_observation(flipped_observation, 4, 7)
+    print(flip_observation(flip_observation(obs, 4, 7), 4, 7))
 
-    print("OBS:", obs)
-    print("FLIPPED_OBS:", flipped_observation)
-    print("FLIPPED_FLIPPED_OBS:", flipped_flipped_obseration)
+    action = (0, 1)
+    flipped_action = flip_action(action, 7)
+    flipped_flipped_action = flip_action(flipped_action, 7)
 
-    print(obs == flipped_flipped_obseration)
+    print("Action:", action)
+    print("Flipped action:", flipped_action)
+    print("Action:", flipped_flipped_action)
+    print(action == flipped_flipped_action)

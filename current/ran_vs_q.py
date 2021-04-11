@@ -49,7 +49,7 @@ def run_game(env, episode, episodes, agents, render=False):
             env.render()
 
         rounds += 1
-        
+
         if rounds > 9995:
             env.render()
 
@@ -72,9 +72,9 @@ def run_game(env, episode, episodes, agents, render=False):
                 agents[winning_agent].decay_epsilon(episode, episodes)
 
             return winner, rewards, rounds
-    
+
     return winner, rewards, rounds
-    
+
 
 def dual_plot(dict, steps, title="", plot_path="./"):
     WHITE = 0
@@ -119,7 +119,7 @@ def plot_actions(random_actions, q_actions, steps, plot_path):
     plt.close()
 
 def save_list_to_file(lst, name, path):
-    
+
     file_path = os.path.join(path, name)
 
     with open(file_path, "w") as f:
@@ -137,7 +137,7 @@ def run(saveFile=False):
     COLORS = {WHITE: "White", BLACK: "Black"}
     # Define the agents
     print("Initiating agents")
-    agents = {WHITE: RandomAgent(), BLACK: QAgent(obs_space, a_space, load_path="black.npy", train=False, epsilon=0.05)}
+    agents = {WHITE: RandomAgent(), BLACK: QAgent(obs_space, a_space, load_path="./current/results/black.npy", train=False, epsilon=0.05)}
     print("Successfully initiated the agents")
     # For plotting later
     wins = {WHITE: [], BLACK: []}
@@ -170,11 +170,11 @@ def run(saveFile=False):
             wins[BLACK].append(0)
             wins[WHITE].append(0)
             print("DRAW/TIMEOUT", "...", winner)
-        
+
         rewards.append(game_rewards)
 
         total_rounds.append(rounds)
-        
+
         if winner != None:
             result.append(winner)
 
@@ -196,11 +196,11 @@ def run(saveFile=False):
     print(f"BLACK WON {round(sum(wins[BLACK])/(sum(wins[WHITE]) + sum(wins[BLACK])), 2)}%")
 
     # print(agents[BLACK].Q[2, 0, 6, 0, 2, 0, 6, 0, 0, 1, 1])
-    
+
     #if saveFile and agents[BLACK].train:
         #save(f"q_tables/new_q_{episodes}_{steps}_white.npy", agents[WHITE].Q)
         #save(f"q_tables/ran_v_q_{episodes}_{steps}_black.npy", agents[BLACK].Q)
-        
+
     # plot_qs(qs)
 
     if saveFile:
@@ -214,7 +214,7 @@ def run(saveFile=False):
 
         save_list_to_file(wins[WHITE], "white_wins.txt", path)
         save_list_to_file(wins[BLACK], "black_wins.txt", path)
-        
+
         save_list_to_file(rewards, "rewards.txt", path)
         save_list_to_file(total_rounds, "rounds.txt", path)
         save_list_to_file(agents[BLACK].epsilons, "epsilons.txt", path)
@@ -235,9 +235,9 @@ def run(saveFile=False):
 
         with open(path + "/info.txt", "w") as f:
             f.write(f"Epsilon: {agents[BLACK].epsilon}, Discount: {agents[BLACK].discount}, LR: {agents[BLACK].lr}")
-        
 
-        
+
+
 
 
 
