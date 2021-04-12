@@ -31,6 +31,8 @@ class QAgent():
         self.random_actions = 0
         self.Q_actions = 0
 
+        self.unexperienced_states = []
+
         # Agent logging
         self.rewards = []
         self.wins = []
@@ -136,12 +138,16 @@ class QAgent():
 
                 if executed:
                     self.Q_actions += 1
+                else:
+                    # Store states where the agent had a "best" action in the Q table that was not allowed to
+                    # While there still was actions the agent could've done
+                    if len(env.get_valid_actions()) > 0:
+                        self.unexperienced_states.append(obs)
 
                 if not executed and self.print:
-                    if len(env.get_valid_actions()) != 0:
-                        print("Failed to execute:", action, "Possible:", env.get_valid_actions(), "Dice:", env.gym.non_used_dice)
-                        env.render()
-                        print(self.Q[obs])
+                    print("Failed to execute:", action, "Possible:", env.get_valid_actions(), "Dice:", env.gym.non_used_dice)
+                    env.render()
+                    print(self.Q[obs])
 
                 # This is implemented in order to learn the agent faster than if it should've
                 # just tried the "best" action from the current q table. I think. This might

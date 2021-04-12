@@ -19,7 +19,7 @@ from utils import flip_observation, flip_action
 def run_game(env, episode, episodes, agents, render=False):
     WHITE = 0
     BLACK = 1
-    _, current_agent = env.reset()
+    current_agent = env.current_agent
     winner, done = None, False
 
     rounds = 0
@@ -130,14 +130,14 @@ def run(saveFile=False):
     # Predefined variables
     obs_space = (9, 9, 9, 9, 9, 9, 9, 2, 2, 2, 2)
     a_space = (8, 8)
-    episodes = 1000
+    episodes = 10_000
     steps = episodes//20
     WHITE = 0
     BLACK = 1
     COLORS = {WHITE: "White", BLACK: "Black"}
     # Define the agents
     print("Initiating agents")
-    agents = {WHITE: RandomAgent(), BLACK: QAgent(obs_space, a_space, load_path="./current/results/black.npy", train=False, epsilon=0.05)}
+    agents = {WHITE: RandomAgent(), BLACK: QAgent(obs_space, a_space, load_path="./current/results/black.npy")}
     print("Successfully initiated the agents")
     # For plotting later
     wins = {WHITE: [], BLACK: []}
@@ -147,6 +147,8 @@ def run(saveFile=False):
     Q_actions = []
     random_actions = []
 
+    replayed_states = []
+
     total_rounds = []
     result = []
     env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
@@ -154,8 +156,21 @@ def run(saveFile=False):
     tic = time.perf_counter()
 
     for _, episode in tqdm(enumerate(range(episodes))):
+        
+        env.reset()
 
         winner, game_rewards, rounds = run_game(env, episode, episodes, agents, render=False)
+
+        if len(set(agents[1].unexperienced_states)) > 0:
+            print(f"--------------- REPLAYING {len(set(agents[1].unexperienced_states))} STATES ---------------")
+            for _ in range(50):
+                for i in list(set(agents[1].unexperienced_states)):
+                    env.set_starting_state_and_player(i)
+                    run_game(env, episode, episodes, agents, render=False)
+
+        replayed_states.append(len(set(agents[1].unexperienced_states)))
+        
+        agents[1].unexperienced_states = []
 
         Q_actions.append(agents[BLACK].Q_actions)
         random_actions.append(agents[BLACK].random_actions)
@@ -184,8 +199,8 @@ def run(saveFile=False):
             print("WIN BLACK RATIO: ------------------------------------ ", round(sum(result[-steps:])/steps, 3))
             print("WIN WHITE RATIO: ------------------------------------ ", round(1 - sum(result[-steps:])/steps, 3))
 
-        #if episode % (episodes//15) == 0 and episode != 0:
-        #    qs.append(np.absolute(agents[BLACK].Q.sum()))
+        if episode % (episodes//15) == 0 and episode != 0:
+            qs.append(np.absolute(agents[BLACK].Q.sum()))
 
 
     toc = time.perf_counter()
@@ -194,6 +209,9 @@ def run(saveFile=False):
 
     print(f"WHITE WON {round(sum(wins[WHITE])/(sum(wins[WHITE]) + sum(wins[BLACK])), 2)}%")
     print(f"BLACK WON {round(sum(wins[BLACK])/(sum(wins[WHITE]) + sum(wins[BLACK])), 2)}%")
+
+    for i in list(set(agents[1].unexperienced_states)):
+        env.set_starting_state_and_player(i)
 
     # print(agents[BLACK].Q[2, 0, 6, 0, 2, 0, 6, 0, 0, 1, 1])
 
@@ -229,6 +247,7 @@ def run(saveFile=False):
         single_plot(rewards, steps, "Rewards", plot_path)
         single_plot(total_rounds, steps, " Avg Rounds", plot_path)
         single_plot(agents[BLACK].epsilons, steps, "Epsilons", plot_path)
+        single_plot(replayed_states, steps, "Replayed states", plot_path)
         dual_plot(wins, steps, "Wins", plot_path)
         plot_actions(random_actions, Q_actions, steps, plot_path)
         plot_qs(qs, plot_path)
@@ -243,4 +262,4 @@ def run(saveFile=False):
 
 
 if __name__ == "__main__":
-    run(saveFile=False)
+    run(saveFile=True)
