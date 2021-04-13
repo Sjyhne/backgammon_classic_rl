@@ -40,24 +40,13 @@ def flip_action(action: tuple, n_spots: int) -> tuple:
 
 def deepify_observation(obs):
     res = []
-    for o in obs:
-        res += [int(i) for i in format(o, "b")]
+    for o in obs[:-4]:
+        res += [1 if idx < o else 0 for idx, _ in enumerate(range(4))]
 
     return res
 
 if __name__ == "__main__":
-    obs = [1, 0, 5, 0, 3, 5, 6, 1, 0, 1, 1]
+    obs = [2, 0, 6, 0, 2, 0, 6, 0, 0, 1, 1]
 
-    print(obs)
-    print(flip_observation(obs, 4, 7))
-
-    print(flip_observation(flip_observation(obs, 4, 7), 4, 7))
-
-    action = (0, 1)
-    flipped_action = flip_action(action, 7)
-    flipped_flipped_action = flip_action(flipped_action, 7)
-
-    print("Action:", action)
-    print("Flipped action:", flipped_action)
-    print("Action:", flipped_flipped_action)
-    print(action == flipped_flipped_action)
+    print(deepify_observation(obs))
+    print(len(deepify_observation(obs)))
