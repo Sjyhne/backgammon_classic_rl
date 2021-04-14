@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 from numpy import load, asarray, save, savetxt
 import matplotlib.pyplot as plt
+from multiprocessing import shared_memory, Process, Queue
 
 # Basic imports
 import random
@@ -16,9 +17,9 @@ from agents import RandomAgent, QAgent
 # Selfmade imports
 from utils import flip_observation, flip_action
 
-def run_game(env, episode, episodes, agents, render=False):
+def run_game(env, episode, episodes, agents, queue, render=False):
     WHITE = 0
-    BLACK = 1
+    BLACK = 1   
     current_agent = env.current_agent
     winner, done = None, False
 
@@ -71,8 +72,15 @@ def run_game(env, episode, episodes, agents, render=False):
                 agents[winning_agent].update_Q(agents[winning_agent].last_observations[0], agents[winning_agent].last_action, new_q)
                 agents[winning_agent].decay_epsilon(episode, episodes)
 
-            return winner, rewards, rounds
+            if winning_agent == WHITE:
+                agents[BLACK].wins.append(0)
+            else:
+                agents[BLACK].wins.append(1)
 
+            queue.put([winner, rewards, rounds, agents[BLACK].epsilon])
+
+            return winner, rewards, rounds
+    queue.put([winner, rewards, rounds, agents[BLACK].epsilon])
     return winner, rewards, rounds
 
 
@@ -130,14 +138,98 @@ def run(saveFile=False):
     # Predefined variables
     obs_space = (9, 9, 9, 9, 9, 9, 9, 2, 2, 2, 2)
     a_space = (8, 8)
-    episodes = 1000
+
+    #a = np.zeros((obs_space + a_space), dtype=np.float16)
+    a = load("./current/results/black.npy")
+    shm = shared_memory.SharedMemory(create=True, size=a.nbytes)
+    print(a[2, 0, 6, 0, 2, 0, 6, 0, 0, 1, 1])
+
+    episodes = 100
     steps = episodes//20
     WHITE = 0
     BLACK = 1
     COLORS = {WHITE: "White", BLACK: "Black"}
     # Define the agents
     print("Initiating agents")
-    agents = {WHITE: RandomAgent(), BLACK: QAgent(obs_space, a_space, load_path="./current/results/black.npy", train=False, epsilon=0)}
+    print("Successfully initiated the agents")
+    # For plotting later
+    rewards = []
+    qs = []
+
+    Q_actions = []
+    random_actions = []
+
+    replayed_states = []
+
+    total_rounds = []
+    results = []
+    env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
+
+    envs = [gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0') for i in range(4)]
+
+    multiprocess = [a, shm]
+
+    q_agents = [QAgent(obs_space, a_space, multiprocess=multiprocess, train=False, epsilon=0) for i in range(4)]
+
+    queues = [Queue() for i in range(4)]
+    eps = []
+    wins = []
+
+    agents = []
+    for q in q_agents:
+        agents.append({0: RandomAgent(), 1: q})
+    
+
+    for _, i in tqdm(enumerate(range(episodes))):
+        p1 = Process(target=run_game, args=[envs[0], i, episodes, agents[0], queues[0]])
+        p2 = Process(target=run_game, args=[envs[1], i, episodes, agents[1], queues[1]])
+        p3 = Process(target=run_game, args=[envs[2], i, episodes, agents[2], queues[2]])
+        p4 = Process(target=run_game, args=[envs[3], i, episodes, agents[3], queues[3]])
+
+        p1.start()
+        p2.start()
+        p3.start()
+        p4.start()
+
+        for que in queues:
+            res = que.get()
+            wins.append(res[0])
+            rewards.append(res[1])
+            total_rounds.append(res[2])
+            eps.append(res[3])
+
+        p1.join()
+        p2.join()
+        p3.join()
+        p4.join()
+
+
+    print("DONE TRAINING")
+
+    #print("WIN RATIO:", wins[BLACK]/(wins[BLACK] + wins[WHITE]))
+
+    player_wins = {WHITE: 0, BLACK: 0}
+
+    for i in wins:
+        if i == 1:
+            player_wins[BLACK] += 1
+        else:
+            player_wins[WHITE] += 1
+
+    print("WIN RATIO:", player_wins[BLACK]/(player_wins[BLACK] + player_wins[WHITE]))
+
+    shm.close()
+    shm.unlink()
+
+    """
+    episodes = 10_000
+    steps = episodes//20
+    WHITE = 0
+    BLACK = 1
+    COLORS = {WHITE: "White", BLACK: "Black"}
+    # Define the agents
+    print("Initiating agents")
+    agents = {WHITE: RandomAgent(), BLACK: QAgent(obs_space, a_space, load_path="./current/results/black.npy")}
     print("Successfully initiated the agents")
     # For plotting later
     wins = {WHITE: [], BLACK: []}
@@ -254,11 +346,7 @@ def run(saveFile=False):
 
         with open(path + "/info.txt", "w") as f:
             f.write(f"Epsilon: {agents[BLACK].epsilon}, Discount: {agents[BLACK].discount}, LR: {agents[BLACK].lr}")
-
-
-
-
-
+    """
 
 
 if __name__ == "__main__":

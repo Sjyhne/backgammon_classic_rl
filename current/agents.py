@@ -11,7 +11,7 @@ class QAgent():
     # Train must be false when measuring the accuracy of the model - If not it will be using random actions
     # To make a play. This is included in training because it increases the training experience for each
     # Observation met when the best q value is not a valid play.
-    def __init__(self, obs_space, action_space, lr=0.0001, discount=0.9, epsilon=1, train=True, load_path=None, print=False):
+    def __init__(self, obs_space, action_space, lr=0.0001, discount=0.9, epsilon=1, train=True, load_path=None, print=False, multiprocess=None):
 
         # Agent configuration
         self.lr = lr
@@ -22,7 +22,7 @@ class QAgent():
         self.print = print
 
         # Agent Q Table
-        self.Q = self.initiate_Q(obs_space, action_space, load_path)
+        self.Q = self.initiate_Q(obs_space, action_space, load_path, multiprocess)
 
         # Last action and observations
         self.last_action = ()
@@ -40,11 +40,15 @@ class QAgent():
         self.epsilons = []
         self.actions_executed = np.zeros((8, 8), dtype=np.int16)
 
-    def initiate_Q(self, obs_space, action_space, load_path):
-        if load_path == None:
-            return np.zeros((obs_space + action_space), dtype=np.float16)
-        else:
+    def initiate_Q(self, obs_space, action_space, load_path, multiprocess):
+        if load_path != None:
             return load(load_path)
+        elif multiprocess != None:
+            a = multiprocess[0]
+            shm = multiprocess[1]
+            return np.ndarray(a.shape, dtype=a.dtype, buffer=shm.buf)
+        else:
+            return np.zeros((obs_space + action_space), dtype=np.float16)
 
     def update_Q(self, obs, action, value):
         self.Q[(tuple(obs) + tuple(action))] = value
@@ -86,6 +90,7 @@ class QAgent():
         self.rewards.append(reward)
         new_q = self.calculate_new_q(obs, next_obs, action, reward)
         self.update_Q(obs, action, new_q)
+        self.update_last_actions(action, obs, next_obs)
         # If the action wasnt executed then continue to loop through the actions
         if not executed:
             if action in actions:
@@ -364,6 +369,8 @@ class RandomAgent:
         done = False
         winner = None
 
+        n_actions_exec = 0
+
         #print("ROLL:", environment.gym.non_used_dice)
 
         for _ in range(num_actions):
@@ -378,6 +385,7 @@ class RandomAgent:
                     if executed:
                         obs = next_observation
                         #print("R EXECUTED:", action)
+                        n_actions_exec += 1
                         break
                     else:
                         acts.remove(action)
@@ -386,4 +394,4 @@ class RandomAgent:
                 if c == len(acts):
                     break
 
-        return obs, done, winner
+        return obs, done, winner, n_actions_exec

@@ -1,6 +1,7 @@
 from multiprocessing import shared_memory, Process
 import numpy as np
 
+from agents import QAgent
 
 a = np.zeros((2,), dtype=np.float16)
 shm = shared_memory.SharedMemory(create=True, size=a.nbytes)
@@ -26,9 +27,7 @@ for i in range(10):
 
 print(b)
 print(c)
+print(a)
 
 shm.close()
 shm.unlink()
-
-
-this = True
