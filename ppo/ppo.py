@@ -8,6 +8,7 @@ from torch.optim import Adam
 from network import feedforwardNN
 
 
+
 class PPO:
     def __init__(self, env):
         
@@ -17,7 +18,7 @@ class PPO:
         #Get environment information
         self.env = env
         self.obs_dim = env.observation_space.shape[0]
-        self.act_dim = env.action_space.n
+        self.act_dim = env.action_space
 
         #Initalize the actor and the critic
         self.actor = feedforwardNN(self.obs_dim, self.act_dim)
@@ -218,11 +219,9 @@ class PPO:
 
 print(torch.min(tensor([-2, 1.2, 3.1, -0.8]), tensor([-1.5, 1.2, 1.5, -0.8])).mean())
 
-env = gym.make("CartPole-v1")
-print(env.action_space.n)
-print(env.observation_space)
+env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
 
-import gym
+print(env.action_space)
 model = PPO(env)
 model.learn(1000)
 
