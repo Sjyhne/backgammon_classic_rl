@@ -7,6 +7,7 @@ from torch.distributions import Categorical
 from torch.optim import Adam
 from network import feedforwardNN
 
+
 class PPO:
     def __init__(self, env):
         
@@ -34,11 +35,16 @@ class PPO:
 
             batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens = self.rollout()
 
+            print("batch obs size", batch_obs.shape)
+
+            print("batch qval size", batch_qvals.shape)
+
             # Calculate how many timesteps we collected this batch   
             t_iterated += np.sum(batch_lens)
 
             #Calculate V
             V = self.evaluate_values(batch_obs)
+            print("batch value size", V)
 
             #Calculate advantage at k'th iteration
             A_k = batch_qvals - V.detach()
@@ -76,7 +82,7 @@ class PPO:
                  #Calculate gradients and perfom backwards propagation on critic network
                 self.critic_optim.zero_grad()
                 critic_loss.backward()
-                self.crititc_optim.step()
+                self.critic_optim.step()
         
     #Define hyperparameters
     def _init_hyperparamters(self):
@@ -94,7 +100,7 @@ class PPO:
         batch_actions = []      #Batch actions  
         batch_log_probs = []    #log probabilities of each action 
         batch_rews = []         #Batch rewards
-        batch_qvals = []         #Batch q values, index 0 will correspond to the q value at timestep 1 in the first epsiode
+        batch_qvals = []        #Batch q values, index 0 will correspond to the q value at timestep 1 in the first epsiode
         batch_lens = []         #Lengths of episodes in batch
 
         t_iterated = 0 #Timesteps iterated so far in batch
@@ -125,10 +131,10 @@ class PPO:
                 if done:
                     break
 
-                #Collect episodic length and rewards
-                batch_lens.append(ep_t + 1)
-                batch_rews.append(episode_rews)
-        
+            #Collect episodic length and rewards
+            batch_lens.append(ep_t + 1)
+            batch_rews.append(episode_rews)
+    
         #Reshape data as tensors
         batch_obs = torch.tensor(batch_obs, dtype=torch.float)
         batch_actions = torch.tensor(batch_actions, dtype=torch.int)
@@ -142,6 +148,10 @@ class PPO:
 
     #Q value function, the index is the timestep. at index 1 it has a high value with the discounted future rewards.
     def compute_qvals(self, batch_rews):
+        size = 0
+        for eps in batch_rews:
+            size += len(eps)
+            print("eps size", size)
 
         #The return per episode per batch   
         batch_qvals = []
@@ -183,13 +193,14 @@ class PPO:
     def get_action(self, obs):
         
         action_probs = self.actor(obs)
-        print("action probs", action_probs)
+        #print("action probs",action_probs)
         dist = Categorical(action_probs)
-        print("dist", dist)
 
         # Sample an action from the distribution and get its log prob
         action = dist.sample()
+        #print("action", action)
         log_prob = dist.log_prob(action)
+        #print("log probs", log_prob)
         
         # Return the sampled action and the log prob of that action
         # Note that I'm calling detach() since the action and log_prob  
@@ -199,8 +210,8 @@ class PPO:
         # start later down the line.
 
         #why does item work but not numpy??
-        print("action item", action.dtype)
-        print("action numpy", action.numpy())
+        #print("action item", action.dtype)
+        #print("action numpy", action.numpy())
 
         return action.detach().item(), log_prob.detach()
     
@@ -213,5 +224,5 @@ print(env.observation_space)
 
 import gym
 model = PPO(env)
-model.learn(10000)
+model.learn(1000)
 

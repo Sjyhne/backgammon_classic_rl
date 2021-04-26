@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-#Might have to set up 2 networks, since relu as output activation function for actor gave weird outputs(not equal to 1). Ask sander
+#Might have to set up 2 networks, since relu as output activation function for actor gave weird outputs(not equal to 1)
 class feedforwardNN(nn.Module):
     def __init__(self, in_dim, out_dim):
         super(feedforwardNN, self).__init__()
@@ -20,8 +20,10 @@ class feedforwardNN(nn.Module):
 
         activation1 = F.relu(self.layer1(obs))
         activation2 = F.relu(self.layer2(activation1))
-        output = F.softmax(self.layer3(activation2))
+        output = F.softmax(self.layer3(activation2), dim=-1)
 
         return output
+
+        
         
                 
