@@ -17,8 +17,10 @@ class PPO:
 
         #Get environment information
         self.env = env
-        self.obs_dim = env.observation_space.shape[0]
-        self.act_dim = env.action_space
+        self.obs_dim = (9, 9, 9, 9, 9, 9, 9, 2, 2, 2, 2)
+        #self.obs_dim = env.observation_space.shape[0]
+        self.act_dim = (8, 8)
+        #self.act_dim = env.action_space
 
         #Initalize the actor and the critic
         self.actor = feedforwardNN(self.obs_dim, self.act_dim)
@@ -111,7 +113,8 @@ class PPO:
             #Rewards this episode
             episode_rews = []
             
-            obs = self.env.reset()
+            # [0] = obs, [1] = starting agent
+            obs = self.env.reset()[0]
             done = False
 
             for ep_t in range(self.max_t_per_episode):
@@ -137,7 +140,7 @@ class PPO:
             batch_rews.append(episode_rews)
     
         #Reshape data as tensors
-        batch_obs = torch.tensor(batch_obs, dtype=torch.float)
+        batch_obs = torch.tensor(batch_obs, dtype=torch.int)
         batch_actions = torch.tensor(batch_actions, dtype=torch.int)
         batch_log_probs = torch.tensor(batch_log_probs, dtype= torch.float)
 
@@ -192,7 +195,7 @@ class PPO:
         return log_probs
 
     def get_action(self, obs):
-        
+        obs = torch.tensor(obs, dtype=torch.int)
         action_probs = self.actor(obs)
         #print("action probs",action_probs)
         dist = Categorical(action_probs)

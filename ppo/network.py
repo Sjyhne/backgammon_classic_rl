@@ -8,18 +8,20 @@ import numpy as np
 class feedforwardNN(nn.Module):
     def __init__(self, in_dim, out_dim):
         super(feedforwardNN, self).__init__()
-
+        in_dim = len(in_dim)
         self.layer1 = nn.Linear(in_dim, 64)
         self.layer2 = nn.Linear(64, 64)
-        self.layer3 = nn.Linear(64, out_dim)
+        self.layer3 = nn.Linear(64, np.prod(out_dim))
 
     def forward(self, obs):
         #Convert observation to tensor if input is numpy array
         if isinstance(obs, np.ndarray):
             obs = torch.tensor(obs, dtype=torch.float)
-
-        activation1 = F.relu(self.layer1(obs))
-        activation2 = F.relu(self.layer2(activation1))
+        obs = torch.tensor(obs, dtype=torch.float)
+        print(obs)
+        print(self.layer1(obs))
+        activation1 = F.sigmoid(self.layer1(obs))
+        activation2 = F.sigmoid(self.layer2(activation1))
         output = F.softmax(self.layer3(activation2), dim=-1)
 
         return output
