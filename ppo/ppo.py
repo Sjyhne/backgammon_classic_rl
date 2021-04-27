@@ -1,4 +1,5 @@
 import torch
+from torch._C import dtype
 import torch.nn as nn
 import numpy as np
 import gym
@@ -116,21 +117,28 @@ class PPO:
             # [0] = obs, [1] = starting agent
             obs = self.env.reset()[0]
             done = False
-
+            print("OBS", obs)
+            break
             for ep_t in range(self.max_t_per_episode):
-                
+                self.env.render()
                 t_iterated += 1
 
                 #Collect observation
                 batch_obs.append(obs)
 
+                #Get valid actions, [0] = dice, [1] = action
+                valid_actions = self.env.get_valid_actions()
 
-                action, log_prob = self.get_action(obs)
-                obs, rew, done, _ = self.env.step(action)
+                print("VALID ACTIONS", valid_actions)
+
+                action_net, action_env, log_prob = self.get_action(obs)
+                
+                #step returns tuple(current_observation), reward, done, winner, executed
+                obs, rew, done, winner , _= self.env.step(action_env)
 
                 episode_rews.append(rew)
                 batch_log_probs.append(log_prob)
-                batch_actions.append(action)
+                batch_actions.append(action_net)
 
                 if done:
                     break
@@ -185,7 +193,7 @@ class PPO:
     
     #Calculate the log probabilities of batch actions using most recent actor network.
     def evaluate_log_probs(self, batch_obs, batch_acts):
-        
+
         #These log probabilities are in coherence with π_Θ (aₜ | sₜ) in the clipped surrogate objective.
         # The old log probabilitites, or  π_Θk(aₜ | sₜ) (prob at k iteration), we get from batch_log_probs. 
         action_probs = self.actor(batch_obs)
@@ -197,13 +205,14 @@ class PPO:
     def get_action(self, obs):
         obs = torch.tensor(obs, dtype=torch.int)
         action_probs = self.actor(obs)
-        #print("action probs",action_probs)
         dist = Categorical(action_probs)
 
+
         # Sample an action from the distribution and get its log prob
-        action = dist.sample()
+        action_net = dist.sample()
+
         #print("action", action)
-        log_prob = dist.log_prob(action)
+        log_prob = dist.log_prob(action_net)
         #print("log probs", log_prob)
         
         # Return the sampled action and the log prob of that action
@@ -217,14 +226,17 @@ class PPO:
         #print("action item", action.dtype)
         #print("action numpy", action.numpy())
 
-        return action.detach().item(), log_prob.detach()
-    
+        #Map output from actor network to the correct action for our environment, which is src, dst = action
+        action_env = np.unravel_index(action_net, (8, 8))
 
-print(torch.min(tensor([-2, 1.2, 3.1, -0.8]), tensor([-1.5, 1.2, 1.5, -0.8])).mean())
+        return action_net, action_env, log_prob.detach()
+    
+    #def action_mask(self, valid_actions, log_prob):
+        
 
 env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
 
 print(env.action_space)
 model = PPO(env)
-model.learn(1000)
+model.learn(100)
 
