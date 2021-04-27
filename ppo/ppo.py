@@ -118,20 +118,18 @@ class PPO:
             obs = self.env.reset()[0]
             done = False
             print("OBS", obs)
-            break
+          
             for ep_t in range(self.max_t_per_episode):
-                self.env.render()
+                #self.env.render()
                 t_iterated += 1
 
                 #Collect observation
                 batch_obs.append(obs)
 
                 #Get valid actions, [0] = dice, [1] = action
-                valid_actions = self.env.get_valid_actions()
+                valid_actions = [i[1] for i in self.env.get_valid_actions()]
 
-                print("VALID ACTIONS", valid_actions)
-
-                action_net, action_env, log_prob = self.get_action(obs)
+                action_net, action_env, all_actions_net, log_prob = self.get_action(obs)
                 
                 #step returns tuple(current_observation), reward, done, winner, executed
                 obs, rew, done, winner , _= self.env.step(action_env)
@@ -207,7 +205,6 @@ class PPO:
         action_probs = self.actor(obs)
         dist = Categorical(action_probs)
 
-
         # Sample an action from the distribution and get its log prob
         action_net = dist.sample()
 
@@ -231,7 +228,27 @@ class PPO:
 
         return action_net, action_env, log_prob.detach()
     
-    #def action_mask(self, valid_actions, log_prob):
+    def action_mask(self, valid_actions, log_probs):
+
+        valid_net_actions = []
+        valid_log_probs = []
+        exp_sum_of_val_acts = []
+
+        #Convert valid environment actions into network actions
+        for valid_action in valid_actions:
+            valid_net_actions.append(np.ravel_multi_index(valid_action,(8,8)))
+
+        #Calculate the sum of valid prob exponents
+        for val_act in valid_actions:
+             exp_sum_of_val_acts += np.exp(log_probs[val_act])
+
+        #The masking function is Y_k = exp(P_k) / sum(exp(P_valids))
+        #Calculate the corrrect masking value for each valid action
+        for val_act in valid_net_actions:
+            
+            valid_log_probs.append(np.exp(log_probs[val_act]) / exp_sum_of_val_acts)
+        
+
         
 
 env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
