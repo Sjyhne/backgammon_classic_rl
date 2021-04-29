@@ -18,10 +18,9 @@ class feedforwardNN(nn.Module):
         if isinstance(obs, np.ndarray):
             obs = torch.tensor(obs, dtype=torch.float)
         obs = torch.tensor(obs, dtype=torch.float)
-        print(obs)
-        print(self.layer1(obs))
-        activation1 = F.sigmoid(self.layer1(obs))
-        activation2 = F.sigmoid(self.layer2(activation1))
+     
+        activation1 = F.relu(self.layer1(obs))
+        activation2 = F.relu(self.layer2(activation1))
         output = F.softmax(self.layer3(activation2), dim=-1)
 
         return output

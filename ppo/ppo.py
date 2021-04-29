@@ -8,10 +8,14 @@ from torch.distributions import Categorical
 from torch.optim import Adam
 from network import feedforwardNN
 
+from agents import RandomAgent
+
+import time
+
 
 
 class PPO:
-    def __init__(self, env, **hyperparameters): #Hyperparmetrs uses idom to allow different changes to only specified paramters to be changed
+    def __init__(self, env, **hyperparameters): #Hyperparmeters uses idom to allow different changes to only specified paramters to be changed
         
         #Initialize hyperparamters
         self._init_hyperparamters(hyperparameters)
@@ -36,6 +40,8 @@ class PPO:
         t_iterated = 0 #Timetsteps iterated so far
 
         while t_iterated < t_total:
+
+            print("Percent done:", round(t_iterated/t_total*100, 2), "%")
 
             batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens = self.rollout()
 
@@ -85,13 +91,13 @@ class PPO:
             
             # Save our model if it's time, t_iterated is the amount of learnings steps so far, save_freq is how frequent we should save, so 2010 % 10 = 0 -> Save
             if t_iterated % self.save_freq == 0:
-                torch.save(self.actor.state_dict(), './ppo_actor.pth')
-                torch.save(self.critic.state_dict(), './ppo_critic.pth')
+                torch.save(self.actor.state_dict(), './ppo/ppo_actor.pth')
+                torch.save(self.critic.state_dict(), './ppo/ppo_critic.pth')
         
     #Define hyperparameters
     def _init_hyperparamters(self, hyperparameters):
         #Default values, need to experiment with changes
-        self.t_per_batch = 4000                 #Timesteps per batch
+        self.t_per_batch = 10                 #Timesteps per batch
         self.max_t_per_episode = 1000           #Timesteps per episode
         self.gamma = 0.95                       #Gamma for discounted return
         self.updates_per_iteration = 5          #Amount of updates per epoch
@@ -105,6 +111,7 @@ class PPO:
         for param, val in hyperparameters.items():
             exec('self.' + param + ' = ' + str(val))
 
+
     #Rollout function to collect batch data(need to understand why we use log on porobabilties)
     def rollout(self):
         batch_obs = []          #Batch observations
@@ -116,42 +123,61 @@ class PPO:
 
         t_iterated = 0 #Timesteps iterated so far in batch
 
+        random_agent = RandomAgent()
+
+        wins = []
+
         while t_iterated < self.t_per_batch:
+
 
             #Rewards this episode
             episode_rews = []
             
             # [0] = obs, [1] = starting agent
-            obs = self.env.reset()[0]
+            obs, current_agent = self.env.reset()
             done = False
           
-            #Run an epsiode for a maximum of max timesteps per episode, or break if terminal state has been reached(game finished)
+            # Run an epsiode for a maximum of max timesteps per episode, or break if terminal state has been reached(game finished)
             for ep_t in range(self.max_t_per_episode):
                 
                 # Render if it is set as true
                 if self.render:
                     self.env.render()
 
-                t_iterated += 1
+                if current_agent == 1:
+                    
+                    for _ in range(len(self.env.gym.non_used_dice)):
 
-                #Collect observation
-                batch_obs.append(obs)
+                        #Collect observation
+                        batch_obs.append(obs)
 
-                action_net, action_env, valid_log_prob = self.get_action(obs)
+                        action_net, action_env, valid_log_prob = self.get_action(obs)
+                        
+                        # step returns tuple(current_observation), reward, done, winner, executed
+                        obs, rew, done, winner, ex = self.env.step(action_env)
+
+                        episode_rews.append(rew)
+                        batch_log_probs.append(valid_log_prob)
+                        batch_actions.append(action_net)
                 
-                #step returns tuple(current_observation), reward, done, winner, executed
-                obs, rew, done, winner , _= self.env.step(action_env)
+                else:
+                    _, done, winner, _ = random_agent.apply_random_action(self.env)
 
-                episode_rews.append(rew)
-                batch_log_probs.append(valid_log_prob)
-                batch_actions.append(action_net)
+                self.env.change_player_turn()
+
+                current_agent = self.env.current_agent
 
                 if done:
+                    if winner != None:
+                        wins.append(winner)
                     break
 
             #Collect episodic length and rewards
-            batch_lens.append(ep_t + 1)
+            batch_lens.append(1)
             batch_rews.append(episode_rews)
+
+            t_iterated += 1
+
     
         #Reshape data as tensors
         batch_obs = torch.tensor(batch_obs, dtype=torch.int)
@@ -160,6 +186,9 @@ class PPO:
 
         #Collect return
         batch_qvals = self.compute_qvals(batch_rews)
+
+        print(sum(wins)/len(wins))
+        print(sum(wins))
 
         #Return the batch data
         return batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens
@@ -221,7 +250,7 @@ class PPO:
             action_probs = self.actor(obs)
             valid_action_prob = self.action_mask(valid_actions, action_probs)
             valid_action_prob = torch.tensor(valid_action_prob, dtype= torch.float)
-
+        
         dist = Categorical(valid_action_prob)
 
         # Sample an action from the distribution and get its log prob
@@ -242,6 +271,8 @@ class PPO:
         #Map output from actor network to the correct action for our environment, which is src, dst = action
         action_env = np.unravel_index(action_net, (8, 8))
 
+        #print("get_action:", action_env)
+
         return action_net, action_env, valid_log_prob.detach()
     
    
@@ -255,30 +286,24 @@ class PPO:
 
         #Convert valid environment actions into network actions
         for valid_act in valid_actions:
-            valid_net_actions.append(np.ravel_multi_index(valid_act,(8,8)))
-
+            valid_net_actions.append(np.ravel_multi_index(valid_act, (8,8)))
+        
         #Calculate the sum of valid prob exponents
         for valid_net_act in valid_net_actions:
           sum_of_exp += np.exp(action_prob[valid_net_act])
 
         #The masking function is Y_k = exp(P_k) / sum(exp(P_valids))
         #Calculate the corrrect masking value for each valid action
-    
-        #Loop through each probability
-        for indx,act_prob in enumerate(action_prob):
-            #Loop through all the valid actions, since these are network actions they correspond as indexes in action_probs
-            for val_act in valid_net_actions:
-                #If the probability is equal to the probability from the valid actions, calculate mask for each valid action
-                if act_prob == action_prob[val_act]:
-                    valid_probs[val_act] = np.exp(action_prob[val_act]) / sum_of_exp
-        
+
+
+        #Loop through each valid_net_action, which are the indexes of the valid actions, and mask each valid probaility, so the sum of the valid actions become 1
+        for idx in valid_net_actions:
+            valid_probs[idx] = np.exp(action_prob[idx]) / sum_of_exp
+
         #Loop through and set every probaility which is not valid to 0
-        for indx, log_prob in enumerate(action_prob):     
-            if log_prob in valid_probs:
-                valid_probs[indx] = 0.0
-        
+        non_valid_net_actions = [i for i in range(64) if i not in valid_net_actions]
+
+        for idx in non_valid_net_actions:
+            valid_probs[idx] = 0.0
+               
         return valid_probs
-        
-
-
-
