@@ -1,4 +1,5 @@
 import torch
+from torch._C import dtype
 import torch.nn as nn
 import numpy as np
 import gym
@@ -10,10 +11,10 @@ from network import feedforwardNN
 
 
 class PPO:
-    def __init__(self, env):
+    def __init__(self, env, **hyperparameters): #Hyperparmetrs uses idom to allow different changes to only specified paramters to be changed
         
         #Initialize hyperparamters
-        self._init_hyperparamters()
+        self._init_hyperparamters(hyperparameters)
 
         #Get environment information
         self.env = env
@@ -38,16 +39,11 @@ class PPO:
 
             batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens = self.rollout()
 
-            print("batch obs size", batch_obs.shape)
-
-            print("batch qval size", batch_qvals.shape)
-
             # Calculate how many timesteps we collected this batch   
             t_iterated += np.sum(batch_lens)
 
             #Calculate V
             V = self.evaluate_values(batch_obs)
-            print("batch value size", V)
 
             #Calculate advantage at k'th iteration
             A_k = batch_qvals - V.detach()
@@ -86,16 +82,28 @@ class PPO:
                 self.critic_optim.zero_grad()
                 critic_loss.backward()
                 self.critic_optim.step()
+            
+            # Save our model if it's time, t_iterated is the amount of learnings steps so far, save_freq is how frequent we should save, so 2010 % 10 = 0 -> Save
+            if t_iterated % self.save_freq == 0:
+                torch.save(self.actor.state_dict(), './ppo_actor.pth')
+                torch.save(self.critic.state_dict(), './ppo_critic.pth')
         
     #Define hyperparameters
-    def _init_hyperparamters(self):
+    def _init_hyperparamters(self, hyperparameters):
         #Default values, need to experiment with changes
         self.t_per_batch = 4000                 #Timesteps per batch
-        self.max_t_per_episode = 1000            #Timesteps per episode
+        self.max_t_per_episode = 1000           #Timesteps per episode
         self.gamma = 0.95                       #Gamma for discounted return
         self.updates_per_iteration = 5          #Amount of updates per epoch
         self.clip = 0.2                         #Clip recommended by paper
         self.lr = 0.005                         #Learning rate of optimizers
+
+        self.render = False                     #If we should render during rollout
+        self.save_freq = 10                     #How often we save in number of iterations
+
+        # Change any default values to custom values for specified hyperparameters
+        for param, val in hyperparameters.items():
+            exec('self.' + param + ' = ' + str(val))
 
     #Rollout function to collect batch data(need to understand why we use log on porobabilties)
     def rollout(self):
@@ -116,21 +124,27 @@ class PPO:
             # [0] = obs, [1] = starting agent
             obs = self.env.reset()[0]
             done = False
-
+          
+            #Run an epsiode for a maximum of max timesteps per episode, or break if terminal state has been reached(game finished)
             for ep_t in range(self.max_t_per_episode):
                 
+                # Render if it is set as true
+                if self.render:
+                    self.env.render()
+
                 t_iterated += 1
 
                 #Collect observation
                 batch_obs.append(obs)
 
-
-                action, log_prob = self.get_action(obs)
-                obs, rew, done, _ = self.env.step(action)
+                action_net, action_env, valid_log_prob = self.get_action(obs)
+                
+                #step returns tuple(current_observation), reward, done, winner, executed
+                obs, rew, done, winner , _= self.env.step(action_env)
 
                 episode_rews.append(rew)
-                batch_log_probs.append(log_prob)
-                batch_actions.append(action)
+                batch_log_probs.append(valid_log_prob)
+                batch_actions.append(action_net)
 
                 if done:
                     break
@@ -155,8 +169,7 @@ class PPO:
         size = 0
         for eps in batch_rews:
             size += len(eps)
-            print("eps size", size)
-
+        
         #The return per episode per batch   
         batch_qvals = []
 
@@ -183,28 +196,37 @@ class PPO:
 
         return V
     
-    #Calculate the log probabilities of batch actions using most recent actor network.
     def evaluate_log_probs(self, batch_obs, batch_acts):
-        
+
         #These log probabilities are in coherence with π_Θ (aₜ | sₜ) in the clipped surrogate objective.
         # The old log probabilitites, or  π_Θk(aₜ | sₜ) (prob at k iteration), we get from batch_log_probs. 
         action_probs = self.actor(batch_obs)
         dist = Categorical(action_probs)
         log_probs = dist.log_prob(batch_acts)
-        # Return predicted values V and log probs log_probs
+        # Return predicted log probs log_probs
         return log_probs
 
+    #Note: what to do if action_probs are all equal 0? we will need for the opponent to do his turn, will this work out in the env?
+    #Calculate the log probabilities of batch actions using most recent actor network.
     def get_action(self, obs):
         obs = torch.tensor(obs, dtype=torch.int)
-        action_probs = self.actor(obs)
-        #print("action probs",action_probs)
-        dist = Categorical(action_probs)
+        
+        #Get valid actions, [0] = dice, [1] = action
+        valid_actions = [i[1] for i in self.env.get_valid_actions()]
+
+        #If there are no valid actions, dont mask since all actions will become 0. The env will skip the turn if there are no valid actions
+        if not valid_actions:
+            valid_action_prob = self.actor(obs)
+        else:
+            action_probs = self.actor(obs)
+            valid_action_prob = self.action_mask(valid_actions, action_probs)
+            valid_action_prob = torch.tensor(valid_action_prob, dtype= torch.float)
+
+        dist = Categorical(valid_action_prob)
 
         # Sample an action from the distribution and get its log prob
-        action = dist.sample()
-        #print("action", action)
-        log_prob = dist.log_prob(action)
-        #print("log probs", log_prob)
+        action_net = dist.sample()
+        valid_log_prob = dist.log_prob(action_net)
         
         # Return the sampled action and the log prob of that action
         # Note that I'm calling detach() since the action and log_prob  
@@ -217,14 +239,46 @@ class PPO:
         #print("action item", action.dtype)
         #print("action numpy", action.numpy())
 
-        return action.detach().item(), log_prob.detach()
+        #Map output from actor network to the correct action for our environment, which is src, dst = action
+        action_env = np.unravel_index(action_net, (8, 8))
+
+        return action_net, action_env, valid_log_prob.detach()
     
+   
+    #Recalculate the probabilities to ensure only valid actions can be chosen.
+    def action_mask(self, valid_actions, action_prob):
 
-print(torch.min(tensor([-2, 1.2, 3.1, -0.8]), tensor([-1.5, 1.2, 1.5, -0.8])).mean())
+        valid_net_actions = []
+        sum_of_exp = 0
+        action_prob = action_prob.detach().numpy()
+        valid_probs = list(action_prob)
 
-env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
+        #Convert valid environment actions into network actions
+        for valid_act in valid_actions:
+            valid_net_actions.append(np.ravel_multi_index(valid_act,(8,8)))
 
-print(env.action_space)
-model = PPO(env)
-model.learn(1000)
+        #Calculate the sum of valid prob exponents
+        for valid_net_act in valid_net_actions:
+          sum_of_exp += np.exp(action_prob[valid_net_act])
+
+        #The masking function is Y_k = exp(P_k) / sum(exp(P_valids))
+        #Calculate the corrrect masking value for each valid action
+    
+        #Loop through each probability
+        for indx,act_prob in enumerate(action_prob):
+            #Loop through all the valid actions, since these are network actions they correspond as indexes in action_probs
+            for val_act in valid_net_actions:
+                #If the probability is equal to the probability from the valid actions, calculate mask for each valid action
+                if act_prob == action_prob[val_act]:
+                    valid_probs[val_act] = np.exp(action_prob[val_act]) / sum_of_exp
+        
+        #Loop through and set every probaility which is not valid to 0
+        for indx, log_prob in enumerate(action_prob):     
+            if log_prob in valid_probs:
+                valid_probs[indx] = 0.0
+        
+        return valid_probs
+        
+
+
 
