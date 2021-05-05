@@ -44,9 +44,9 @@ class QAgent():
         if load_path != None:
             return load(load_path)
         elif multiprocess != None:
-            a = multiprocess[0]
+            np_array = multiprocess[0]
             shm = multiprocess[1]
-            return np.ndarray(a.shape, dtype=a.dtype, buffer=shm.buf)
+            return np_array
         else:
             return np.zeros((obs_space + action_space), dtype=np.float16)
 
@@ -72,7 +72,7 @@ class QAgent():
         if self.epsilon != 0:
             # Update epsilon following a ^2 curve
             if math.cos(np.linspace((6.7/4) * (1 - self.epsilon), 6.7/4, episodes)[episode]) > 0:
-                self.epsilon = math.cos(np.linspace(0, 6.7/4, episodes)[episode])
+                self.epsilon = math.cos(np.linspace((6.7/4) * (1 - self.epsilon), 6.7/4, episodes)[episode])
             else:
                 self.epsilon = 0
 
@@ -114,7 +114,6 @@ class QAgent():
             random_actions = [i[1] for i in env.get_actions()]
 
             obs = env.get_current_observation()
-
             # Check if the agent should to random or best action
             if random.uniform(0, 1) < self.epsilon:
 
@@ -287,6 +286,7 @@ class QAgentFlip():
             # Flip observation
             if flip:
                 obs = flip_observation(obs, env.gym.n_pieces, env.gym.n_spots)
+            
 
             # Check if the agent should to random or best action
             if random.uniform(0, 1) < self.epsilon:
