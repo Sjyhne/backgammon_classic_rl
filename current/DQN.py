@@ -48,7 +48,7 @@ def run_game(env, agents, render=False, eval=False):
                     )
                     agents[env.current_agent].observe(terminal=executed, reward=reward)
                 else:
-                    for i in range(300):
+                    for i in range(70):
                         n_moves += 1
                         actions = agents[env.current_agent].act(states=states)
                         obs, reward, done, winner, executed = env.step(
@@ -84,12 +84,7 @@ agent = Agent.create(
     memory=dict(capacity=10000),
     update=dict(unit="timesteps", batch_size=16),
     optimizer=dict(type="adam", learning_rate=3e-4),
-    policy=dict(
-        network=[
-            dict(type="dense", size=16, activation="softmax"),
-            dict(type="dense", size=16, activation="softmax"),
-        ]
-    ),
+    policy=dict(network="auto"),
     objective="policy_gradient",
     reward_estimation=dict(horizon=20, discount=0.9),
     exploration=dict(
@@ -107,12 +102,13 @@ agents = {0: RandomAgent(), 1: agent}
 def run():
     WHITE = 0
     BLACK = 1
-    episodes = 200
+    episodes = 5000
     results = []
     rewards = []
     rounds = []
     tried_moves = []
-
+    wins_per_50 = []
+    tmp_wins = 0
     eval_wins = []
 
     action_count = {WHITE: [], BLACK: []}
@@ -121,10 +117,15 @@ def run():
         # print(episode)
         env.reset()
         winner, reward, r, n, tried_moves = run_game(env, agents)
-        if episode % 10 == 0 and episode != 0:
-            for i in range(10):
+        if winner == BLACK:
+            winner += 1
+        if episode % 50 == 0 and episode != 0:
+            wins_per_50.append(tmp_wins)
+            for i in tqdm(enumerate(range(50))):
                 winner, reward, r, n, tried_moves = run_game(env, agents)
                 eval_wins.append(winner)
+                print("eval winner" + str(winner))
+
         # print(winner)
         rounds.append(r)
         # print("\n")
@@ -156,15 +157,16 @@ def run():
         )
         print(f"Avg tries to find valid moves: {sum(tried_moves)/len(tried_moves)}")
         print(sum(eval_wins))
-        print(sum(eval_wins) - len(eval_wins))
+        print((len(eval_wins) - sum(eval_wins)) * -1)
         # print(lst2)
         plt.plot(action_count[WHITE], label="WHITE")
         plt.plot(action_count[BLACK], label="BLACK")
         # plt.plot(lst, label="BLACK")
-        plt.plot(tried_moves, label="BLACK")
-        plt.plot()
+        plt.plot(wins_per_50, label="Tried moves")
         plt.legend()
+        plt.show()
 
+        plt.plot(tmp_wins, label="Wins per 50 episode")
         plt.show()
     except RuntimeError:
         print("Something went wrong")
@@ -172,3 +174,12 @@ def run():
 
 if __name__ == "__main__":
     run()
+
+    """
+    policy=dict(
+        network=[
+            dict(type="dense", size=16, activation="softmax"),
+            dict(type="dense", size=16, activation="softmax"),
+        ]
+    ),
+    """
