@@ -6,8 +6,9 @@ import os
 
 from ppo import PPO
 from network import feedforwardNN
+import matplotlib.pyplot as plt
 
-def train(env, hyperparameters, actor_model, critic_model, timesteps=200):
+def train(env, hyperparameters, actor_model, critic_model, batches):
 
     print(f"Training", flush=True)
 
@@ -29,15 +30,37 @@ def train(env, hyperparameters, actor_model, critic_model, timesteps=200):
 
 
 
-    # Train the PPO model with a specified total timesteps
-    model.learn(timesteps)
+    # Train the PPO model with a specified total of games
+    total_wins = model.learn(batches * hyperparameters["episode_per_batch"])
+    return total_wins
+
+
+def test(env, hyperparameters, actor_model, critic_model, episodes):
+
+    # Create a model for PPO.
+    model = PPO(env=env, **hyperparameters)
+
+    print(f"Loading in {actor_model} and {critic_model}...", flush=True)
+    model.actor.load_state_dict(torch.load(actor_model))
+    model.critic.load_state_dict(torch.load(critic_model))
+    print(f"Successfully loaded.", flush=True)
+
+    total_wins = []
+
+    for i in range(episodes):
+        _, _, _, _, winner = model.game_loop_vs_random()
+        if winner != None:
+            total_wins.append(winner)
+    
+    print("Win percentage:", round(sum(total_wins)/len(total_wins), 3))
+
 
 
 if __name__ == '__main__':
     env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
 
     hyperparameters = {
-				't_per_batch': 100, 
+				'episode_per_batch': 100, 
 				'max_t_per_episode': 200, 
 				'gamma': 0.99, 
 				'updates_per_iteration': 10,
@@ -46,4 +69,12 @@ if __name__ == '__main__':
 				'render': False,
 			  }
 
-    train(env=env, hyperparameters=hyperparameters, actor_model= "./ppo/ppo_actor.pth", critic_model="./ppo/ppo_critic.pth", timesteps=500)
+    total_wins = train(env=env, hyperparameters=hyperparameters, actor_model= "./ppo_actor.pth", critic_model="./ppo_critic.pth", batches=5)
+
+    test(env=env, hyperparameters=hyperparameters, actor_model= "./ppo_actor.pth", critic_model="./ppo_critic.pth", episodes=300)
+    
+    print(total_wins)
+
+    plt.plot(total_wins)
+    plt.title("Batch win percentages")
+    plt.savefig("./total_win_graph.png")

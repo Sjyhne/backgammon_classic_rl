@@ -36,17 +36,26 @@ class PPO:
 
 
     #Learning loop
-    def learn(self, t_total):
-        t_iterated = 0 #Timetsteps iterated so far
+    def learn(self, ep_total):
+        ep_iterated = 0 #Episodes iterated so far
 
-        while t_iterated < t_total:
+        total_wins = [] #Total wins of the learning loop, represneted by 1's and 0's
+        total_rewards = []
 
-            print("Percent done:", round(t_iterated/t_total*100, 2), "%")
+        while ep_iterated < ep_total:
 
-            batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens = self.rollout()
+            print("Percent done:", round(ep_iterated/ep_total*100, 2), "%")
+
+            batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens, batch_wins = self.rollout()
+
+            batch_win_percentage = sum(batch_wins)/len(batch_wins)
+
+            total_wins.append(batch_win_percentage)
+
+            print("Batch win acc:", batch_win_percentage)
 
             # Calculate how many timesteps we collected this batch   
-            t_iterated += np.sum(batch_lens)
+            ep_iterated += np.sum(batch_lens)
 
             #Calculate V
             V = self.evaluate_values(batch_obs)
@@ -90,17 +99,19 @@ class PPO:
                 self.critic_optim.step()
             
             # Save our model if it's time, t_iterated is the amount of learnings steps so far, save_freq is how frequent we should save, so 2010 % 10 = 0 -> Save
-            if t_iterated % self.save_freq == 0:
-                torch.save(self.actor.state_dict(), './ppo/ppo_actor.pth')
-                torch.save(self.critic.state_dict(), './ppo/ppo_critic.pth')
+            if ep_iterated % self.save_freq == 0:
+                torch.save(self.actor.state_dict(), './ppo_actor.pth')
+                torch.save(self.critic.state_dict(), './ppo_critic.pth')
+
+        return total_wins
         
     #Define hyperparameters
     def _init_hyperparamters(self, hyperparameters):
         #Default values, need to experiment with changes
-        self.t_per_batch = 10                 #Timesteps per batch
-        self.max_t_per_episode = 1000           #Timesteps per episode
+        self.episode_per_batch = 100            #Timesteps per batch
+        self.max_t_per_episode = 1000           #Max timesteps per episode
         self.gamma = 0.95                       #Gamma for discounted return
-        self.updates_per_iteration = 5          #Amount of updates per epoch
+        self.updates_per_iteration = 5          #Amount of updates per epoch(epoch equals batch size)
         self.clip = 0.2                         #Clip recommended by paper
         self.lr = 0.005                         #Learning rate of optimizers
 
@@ -112,6 +123,55 @@ class PPO:
             exec('self.' + param + ' = ' + str(val))
 
 
+    def game_loop_vs_random(self):
+
+        episode_obs = []          #Episode observations
+        episode_actions = []      #Episode actions  
+        episode_log_probs = []    #log probabilities of each action 
+        episode_rews = []         #Episode rewards
+                
+        episode_rews = []         #Rewards this episode
+        random_agent = RandomAgent()
+
+        # [0] = obs, [1] = starting agent
+        obs, current_agent = self.env.reset()
+        done = False
+        
+        # Run an epsiode for a maximum of max timesteps per episode, or break if terminal state has been reached(game finished)
+        for ep_t in range(self.max_t_per_episode):
+            
+            # Render if it is set as true
+            if self.render:
+                self.env.render()
+
+            if current_agent == 1:
+                
+                for _ in range(len(self.env.gym.non_used_dice)):
+
+                    #Collect observation
+                    episode_obs.append(obs)
+
+                    action_net, action_env, valid_log_prob = self.get_action(obs)
+                    
+                    # step returns tuple(current_observation), reward, done, winner, executed
+                    obs, rew, done, winner, ex = self.env.step(action_env)
+
+                    episode_rews.append(rew)
+                    episode_log_probs.append(valid_log_prob)
+                    episode_actions.append(action_net)
+            
+            else:
+                _, done, winner, _ = random_agent.apply_random_action(self.env)
+
+            self.env.change_player_turn()
+
+            current_agent = self.env.current_agent
+
+            if done:
+                break
+        
+        return episode_obs, episode_actions, episode_log_probs, episode_rews, winner
+
     #Rollout function to collect batch data(need to understand why we use log on porobabilties)
     def rollout(self):
         batch_obs = []          #Batch observations
@@ -120,63 +180,27 @@ class PPO:
         batch_rews = []         #Batch rewards
         batch_qvals = []        #Batch q values, index 0 will correspond to the q value at timestep 1 in the first epsiode
         batch_lens = []         #Lengths of episodes in batch
+        batch_wins = []         #PPO agents wins and losses represented by 1's and 0's
 
-        t_iterated = 0 #Timesteps iterated so far in batch
+        episode_iterated = 0 #Timesteps iterated so far in batch
 
-        random_agent = RandomAgent()
-
-        wins = []
-
-        while t_iterated < self.t_per_batch:
+        while episode_iterated < self.episode_per_batch:
 
 
-            #Rewards this episode
-            episode_rews = []
+            episode_obs, episode_actions, episode_log_probs, episode_rews, winner = self.game_loop_vs_random()
+
+            batch_obs.extend(episode_obs)
+            batch_actions.extend(episode_actions)
+            batch_log_probs.extend(episode_log_probs)
+
+            if winner != None:
+                batch_wins.append(winner)
             
-            # [0] = obs, [1] = starting agent
-            obs, current_agent = self.env.reset()
-            done = False
-          
-            # Run an epsiode for a maximum of max timesteps per episode, or break if terminal state has been reached(game finished)
-            for ep_t in range(self.max_t_per_episode):
-                
-                # Render if it is set as true
-                if self.render:
-                    self.env.render()
-
-                if current_agent == 1:
-                    
-                    for _ in range(len(self.env.gym.non_used_dice)):
-
-                        #Collect observation
-                        batch_obs.append(obs)
-
-                        action_net, action_env, valid_log_prob = self.get_action(obs)
-                        
-                        # step returns tuple(current_observation), reward, done, winner, executed
-                        obs, rew, done, winner, ex = self.env.step(action_env)
-
-                        episode_rews.append(rew)
-                        batch_log_probs.append(valid_log_prob)
-                        batch_actions.append(action_net)
-                
-                else:
-                    _, done, winner, _ = random_agent.apply_random_action(self.env)
-
-                self.env.change_player_turn()
-
-                current_agent = self.env.current_agent
-
-                if done:
-                    if winner != None:
-                        wins.append(winner)
-                    break
-
             #Collect episodic length and rewards
             batch_lens.append(1)
             batch_rews.append(episode_rews)
 
-            t_iterated += 1
+            episode_iterated += 1
 
     
         #Reshape data as tensors
@@ -187,11 +211,10 @@ class PPO:
         #Collect return
         batch_qvals = self.compute_qvals(batch_rews)
 
-        print(sum(wins)/len(wins))
-        print(sum(wins))
+        print(sum(batch_wins)/len(batch_wins))
 
         #Return the batch data
-        return batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens
+        return batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens, batch_wins
 
     #Q value function, the index is the timestep. at index 1 it has a high value with the discounted future rewards.
     def compute_qvals(self, batch_rews):
