@@ -39,18 +39,24 @@ class PPO:
     def learn(self, ep_total):
         ep_iterated = 0 #Episodes iterated so far
 
-        total_wins = [] #Total wins of the learning loop, represneted by 1's and 0's
+        total_wins = [] #Total wins of the learning loop, represented by 1's and 0's
         total_rewards = []
 
         while ep_iterated < ep_total:
 
+            #Prints continually out information about how far into the loop we are -> gives an estimate of how long it will take to learn by the set lengths of episodes
             print("Percent done:", round(ep_iterated/ep_total*100, 2), "%")
 
             batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens, batch_wins = self.rollout()
 
+            #Calulates the batch win percentage and appends it into the total wins
             batch_win_percentage = sum(batch_wins)/len(batch_wins)
-
             total_wins.append(batch_win_percentage)
+
+            with open("BatchWinPercentages.txt","a+") as batch_wins:
+                batch_wins.write(str(batch_win_percentage))
+                batch_wins.write("\n")
+
 
             print("Batch win acc:", batch_win_percentage)
 
@@ -93,22 +99,22 @@ class PPO:
                 actor_loss.backward(retain_graph = True)
                 self.actor_optim.step()
 
-                 #Calculate gradients and perfom backwards propagation on critic network
+                #Calculate gradients and perfom backwards propagation on critic network
                 self.critic_optim.zero_grad()
                 critic_loss.backward()
                 self.critic_optim.step()
             
             # Save our model if it's time, t_iterated is the amount of learnings steps so far, save_freq is how frequent we should save, so 2010 % 10 = 0 -> Save
             if ep_iterated % self.save_freq == 0:
-                torch.save(self.actor.state_dict(), './ppo_actor.pth')
-                torch.save(self.critic.state_dict(), './ppo_critic.pth')
+                torch.save(self.actor.state_dict(), 'ppo_actor.pth')
+                torch.save(self.critic.state_dict(), 'ppo_critic.pth')
 
         return total_wins
         
     #Define hyperparameters
     def _init_hyperparamters(self, hyperparameters):
         #Default values, need to experiment with changes
-        self.episode_per_batch = 100            #Timesteps per batch
+        self.episodes_per_batch = 100            #Episodes per batch
         self.max_t_per_episode = 1000           #Max timesteps per episode
         self.gamma = 0.95                       #Gamma for discounted return
         self.updates_per_iteration = 5          #Amount of updates per epoch(epoch equals batch size)
@@ -172,7 +178,7 @@ class PPO:
         
         return episode_obs, episode_actions, episode_log_probs, episode_rews, winner
 
-    #Rollout function to collect batch data(need to understand why we use log on porobabilties)
+    #Rollout function to collect batch data
     def rollout(self):
         batch_obs = []          #Batch observations
         batch_actions = []      #Batch actions  
@@ -184,7 +190,7 @@ class PPO:
 
         episode_iterated = 0 #Timesteps iterated so far in batch
 
-        while episode_iterated < self.episode_per_batch:
+        while episode_iterated < self.episodes_per_batch:
 
 
             episode_obs, episode_actions, episode_log_probs, episode_rews, winner = self.game_loop_vs_random()
