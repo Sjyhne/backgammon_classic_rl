@@ -48,7 +48,7 @@ def run_game(env, agents, render=False, eval=False):
                     )
                     agents[env.current_agent].observe(terminal=executed, reward=reward)
                 else:
-                    for i in range(70):
+                    for i in range(20):
                         n_moves += 1
                         actions = agents[env.current_agent].act(states=states)
                         obs, reward, done, winner, executed = env.step(
@@ -81,8 +81,8 @@ agent = Agent.create(
     agent="tensorforce",
     states=dict(type="float", shape=11, max_value=0.8, min_value=0.0),
     actions=dict(type="int", shape=2, num_values=8),
-    memory=dict(capacity=10000),
-    update=dict(unit="timesteps", batch_size=16),
+    memory=dict(capacity=20_000),
+    update=dict(unit="timesteps", batch_size=32),
     optimizer=dict(type="adam", learning_rate=3e-4),
     policy=dict(network="auto"),
     objective="policy_gradient",
@@ -117,14 +117,18 @@ def run():
         # print(episode)
         env.reset()
         winner, reward, r, n, tried_moves = run_game(env, agents)
-        if winner == BLACK:
-            winner += 1
-        if episode % 50 == 0 and episode != 0:
-            wins_per_50.append(tmp_wins)
+
+        if episode % 200 == 0 and episode != 0:
+            wins_per_50.append(winner)
+            print()
+            print("Training wins:", sum(wins_per_50[-200:])/200)
             for i in tqdm(enumerate(range(50))):
+                env.reset()
                 winner, reward, r, n, tried_moves = run_game(env, agents)
                 eval_wins.append(winner)
-                print("eval winner" + str(winner))
+                #print("eval winner" + str(winner))
+            print()
+            print("Testing wins:", sum(eval_wins[-50:])/(50))
 
         # print(winner)
         rounds.append(r)
