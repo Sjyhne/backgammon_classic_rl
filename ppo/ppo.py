@@ -8,7 +8,11 @@ from torch.distributions import Categorical
 from torch.optim import Adam
 from network import feedforwardNN
 
+from tqdm import tqdm
+
 from agents import RandomAgent
+
+from utils import floatify_obs
 
 import time
 
@@ -28,7 +32,7 @@ class PPO:
         #self.act_dim = env.action_space
 
         #Initalize the actor and the critic
-        self.actor = feedforwardNN(self.obs_dim, self.act_dim)
+        self.actor = feedforwardNN(self.obs_dim, np.prod(self.act_dim))
         self.critic = feedforwardNN(self.obs_dim, 1)
 
         self.actor_optim = Adam(self.actor.parameters(), lr = self.lr)
@@ -47,24 +51,26 @@ class PPO:
             #Prints continually out information about how far into the loop we are -> gives an estimate of how long it will take to learn by the set lengths of episodes
             print("Percent done:", round(ep_iterated/ep_total*100, 2), "%")
 
-            batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens, batch_wins = self.rollout()
+            batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens, batch_wins, batch_rews = self.rollout()
+
 
             #Calulates the batch win percentage and appends it into the total wins
             batch_win_percentage = sum(batch_wins)/len(batch_wins)
             total_wins.append(batch_win_percentage)
 
-            with open("BatchWinPercentages.txt","a+") as batch_wins:
-                batch_wins.write(str(batch_win_percentage))
-                batch_wins.write("\n")
-
-
+            with open("BatchWinPercentages.txt","a+") as wins:
+                wins.write(str(batch_win_percentage))
+                wins.write("\n")
+            
             print("Batch win acc:", batch_win_percentage)
 
-            # Calculate how many timesteps we collected this batch   
+            # Calculate how many episodes we collected this batch   
             ep_iterated += np.sum(batch_lens)
 
             #Calculate V
             V = self.evaluate_values(batch_obs)
+
+            print("V", V)
 
             #Calculate advantage at k'th iteration
             A_k = batch_qvals - V.detach()
@@ -85,9 +91,9 @@ class PPO:
 
                 #Calculate surrogate losses
                 surrogate1 = ratios * A_k
-                surrogate2 = torch.clamp(ratios, 1- self.clip, 1 + self.clip) * A_k #Clamp restrict values to be not higher or smaller than the set min and max, binding values to the respective upper and lower bounds if the values does not adher to the set min and max
+                surrogate2 = torch.clamp(ratios, 1 - self.clip, 1 + self.clip) * A_k #Clamp restrict values to be not higher or smaller than the set min and max, binding values to the respective upper and lower bounds if the values does not adher to the set min and max
 
-                #Calculate actor objective. We use - since we are trying to maximize rewards through sthocastic ascent 
+                #Calculate actor objective. We use - since we are trying to maximize rewards through stochastic ascent 
                 actor_loss = (-torch.min(surrogate1, surrogate2)).mean()
 
                 #Calcualte critic loss
@@ -97,38 +103,51 @@ class PPO:
                 #Calculate gradients and perfom backwards propagation on actor network
                 self.actor_optim.zero_grad()
                 actor_loss.backward(retain_graph = True)
+                print("al:", actor_loss)
                 self.actor_optim.step()
 
                 #Calculate gradients and perfom backwards propagation on critic network
                 self.critic_optim.zero_grad()
                 critic_loss.backward()
+                print("cl:", critic_loss)
                 self.critic_optim.step()
             
-            # Save our model if it's time, t_iterated is the amount of learnings steps so far, save_freq is how frequent we should save, so 2010 % 10 = 0 -> Save
-            if ep_iterated % self.save_freq == 0:
-                torch.save(self.actor.state_dict(), 'ppo_actor.pth')
-                torch.save(self.critic.state_dict(), 'ppo_critic.pth')
+            # Save our model after every episode
+            
+            torch.save(self.actor.state_dict(), 'ppo_actor.pth')
+            torch.save(self.critic.state_dict(), 'ppo_critic.pth')
+
 
         return total_wins
         
     #Define hyperparameters
     def _init_hyperparamters(self, hyperparameters):
         #Default values, need to experiment with changes
-        self.episodes_per_batch = 100            #Episodes per batch
-        self.max_t_per_episode = 1000           #Max timesteps per episode
-        self.gamma = 0.95                       #Gamma for discounted return
-        self.updates_per_iteration = 5          #Amount of updates per epoch(epoch equals batch size)
+        self.episodes_per_batch = 20            #Episodes per batch
+        self.max_t_per_episode = 50             #Max timesteps per episode
+        self.gamma = 0.99                       #Gamma for discounted return
+        self.updates_per_iteration = 8          #Amount of updates per epoch(epoch equals batch size)
         self.clip = 0.2                         #Clip recommended by paper
-        self.lr = 0.005                         #Learning rate of optimizers
+        self.lr = 0.0005                        #Learning rate of optimizers
+        self.seed = None                        #Set the seed for reproducibility of results
 
         self.render = False                     #If we should render during rollout
-        self.save_freq = 10                     #How often we save in number of iterations
+        #self.save_freq = 10                     #How often we save in number of iterations
 
         # Change any default values to custom values for specified hyperparameters
         for param, val in hyperparameters.items():
             exec('self.' + param + ' = ' + str(val))
 
+        # Sets the seed if specified
+        if self.seed != None:
+			# Check if our seed is valid first
+            assert(type(self.seed) == int)
 
+			# Set the seed 
+            torch.manual_seed(self.seed)
+            print(f"Successfully set seed to {self.seed}")
+
+    #Game loop for ppo vs an agent doing random valid actions
     def game_loop_vs_random(self):
 
         episode_obs = []          #Episode observations
@@ -155,26 +174,35 @@ class PPO:
                 for _ in range(len(self.env.gym.non_used_dice)):
 
                     #Collect observation
-                    episode_obs.append(obs)
+                    episode_obs.append(floatify_obs(obs))
 
                     action_net, action_env, valid_log_prob = self.get_action(obs)
                     
                     # step returns tuple(current_observation), reward, done, winner, executed
-                    obs, rew, done, winner, ex = self.env.step(action_env)
+                    obs, rew, done, winner, _ = self.env.step(action_env)
 
                     episode_rews.append(rew)
                     episode_log_probs.append(valid_log_prob)
                     episode_actions.append(action_net)
+
+                    if done:
+                        break
             
             else:
-                _, done, winner, _ = random_agent.apply_random_action(self.env)
+                obs, done, winner, _ = random_agent.apply_random_action(self.env)
+
+
+            if done:
+                if self.env.current_agent == 0:
+                    episode_rews.append(-1)
+                    episode_obs.append(episode_obs[-1])
+                    episode_actions.append(episode_actions[-1])
+                    episode_log_probs.append(episode_log_probs[-1])
+                break
 
             self.env.change_player_turn()
 
             current_agent = self.env.current_agent
-
-            if done:
-                break
         
         return episode_obs, episode_actions, episode_log_probs, episode_rews, winner
 
@@ -210,17 +238,15 @@ class PPO:
 
     
         #Reshape data as tensors
-        batch_obs = torch.tensor(batch_obs, dtype=torch.int)
+        batch_obs = torch.tensor(batch_obs, dtype=torch.float)
         batch_actions = torch.tensor(batch_actions, dtype=torch.int)
         batch_log_probs = torch.tensor(batch_log_probs, dtype= torch.float)
 
         #Collect return
         batch_qvals = self.compute_qvals(batch_rews)
 
-        print(sum(batch_wins)/len(batch_wins))
-
         #Return the batch data
-        return batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens, batch_wins
+        return batch_obs, batch_actions, batch_log_probs, batch_qvals, batch_lens, batch_wins, batch_rews
 
     #Q value function, the index is the timestep. at index 1 it has a high value with the discounted future rewards.
     def compute_qvals(self, batch_rews):
@@ -267,7 +293,7 @@ class PPO:
     #Note: what to do if action_probs are all equal 0? we will need for the opponent to do his turn, will this work out in the env?
     #Calculate the log probabilities of batch actions using most recent actor network.
     def get_action(self, obs):
-        obs = torch.tensor(obs, dtype=torch.int)
+        obs = torch.tensor(floatify_obs(obs), dtype=torch.float)
         
         #Get valid actions, [0] = dice, [1] = action
         valid_actions = [i[1] for i in self.env.get_valid_actions()]
@@ -285,24 +311,13 @@ class PPO:
         # Sample an action from the distribution and get its log prob
         action_net = dist.sample()
         valid_log_prob = dist.log_prob(action_net)
-        
-        # Return the sampled action and the log prob of that action
-        # Note that I'm calling detach() since the action and log_prob  
-        # are tensors with computation graphs, so I want to get rid
-        # of the graph and just convert the action to numpy array.
-        # log prob as tensor is fine. Our computation graph will
-        # start later down the line.
-
-        #why does item work but not numpy??
-        #print("action item", action.dtype)
-        #print("action numpy", action.numpy())
 
         #Map output from actor network to the correct action for our environment, which is src, dst = action
         action_env = np.unravel_index(action_net, (8, 8))
 
         #print("get_action:", action_env)
 
-        return action_net, action_env, valid_log_prob.detach()
+        return action_net.detach(), action_env, valid_log_prob.detach()
     
    
     #Recalculate the probabilities to ensure only valid actions can be chosen.
@@ -317,6 +332,7 @@ class PPO:
         for valid_act in valid_actions:
             valid_net_actions.append(np.ravel_multi_index(valid_act, (8,8)))
         
+
         #Calculate the sum of valid prob exponents
         for valid_net_act in valid_net_actions:
           sum_of_exp += np.exp(action_prob[valid_net_act])
@@ -334,5 +350,5 @@ class PPO:
 
         for idx in non_valid_net_actions:
             valid_probs[idx] = 0.0
-               
+
         return valid_probs

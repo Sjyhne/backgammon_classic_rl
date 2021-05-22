@@ -58,21 +58,25 @@ if __name__ == '__main__':
     env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
 
     hyperparameters = {
-				'episodes_per_batch': 100, 
-				'max_t_per_episode': 200, 
+				'episodes_per_batch': 20, 
+				'max_t_per_episode': 50, 
 				'gamma': 0.99, 
-				'updates_per_iteration': 10,
-				'lr': 3e-4, 
+				'updates_per_iteration': 8,
+				'lr': 5e-4, 
 				'clip': 0.2,
 				'render': False,
 			  }
 
-    total_wins = train(env=env, hyperparameters=hyperparameters, actor_model= "ppo_actor.pth", critic_model="ppo_critic.pth", batches=5)
+    hyperparameters_testing = {
+				'seed': 0
+			  }
 
-    test(env=env, hyperparameters=hyperparameters, actor_model= "ppo_actor.pth", critic_model="ppo_critic.pth", episodes=300)
+
+    total_wins = train(env=env, hyperparameters=hyperparameters, actor_model= "ppo_actor.pth", critic_model="ppo_critic.pth", batches=50000)
+
+    test(env=env, hyperparameters=hyperparameters_testing, actor_model= "ppo_actor.pth", critic_model="ppo_critic.pth", episodes=1000)
     
-    print("HEI", total_wins)
 
-    plt.plot(total_wins)
-    plt.title("Batch win percentages")
-    plt.savefig("./total_win_graph.png")
+    #plt.plot(total_wins)
+    #plt.title("Batch win percentages")
+    #plt.savefig("./total_win_graph.png")
