@@ -18,11 +18,13 @@ class feedforwardNN(nn.Module):
         self.layer3 = nn.Linear(64, self.out_dim)
 
     def forward(self, obs):
-        activation1 = F.relu(self.layer1(obs))
-        activation2 = F.relu(self.layer2(activation1))
         if self.out_dim == 1:
+            activation1 = F.relu(self.layer1(obs))
+            activation2 = F.relu(self.layer2(activation1))
             output = self.layer3(activation2)
         else:
+            activation1 = F.tanh(self.layer1(obs))
+            activation2 = F.tanh(self.layer2(activation1))
             output = F.softmax(self.layer3(activation2), dim=-1)
 
         return output

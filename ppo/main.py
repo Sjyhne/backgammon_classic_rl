@@ -46,7 +46,7 @@ def test(env, hyperparameters, actor_model, critic_model, episodes):
     total_wins = []
 
     for i in range(episodes):
-        _, _, _, _, winner = model.game_loop_vs_random()
+        _, _, _, _, _, _, winner = model.game_loop_vs_random()
         if winner != None:
             total_wins.append(winner)
     
@@ -58,25 +58,81 @@ if __name__ == '__main__':
     env = gym.make('reduced_backgammon_gym:reducedBackgammonGym-v0')
 
     hyperparameters = {
-				'episodes_per_batch': 20, 
-				'max_t_per_episode': 50, 
+				'episodes_per_batch': 10, 
+				'max_t_per_episode': 500, 
 				'gamma': 0.99, 
 				'updates_per_iteration': 8,
-				'lr': 5e-4, 
+				'lr': 0.00002, 
 				'clip': 0.2,
 				'render': False,
 			  }
 
-    hyperparameters_testing = {
-				'seed': 0
-			  }
 
 
-    total_wins = train(env=env, hyperparameters=hyperparameters, actor_model= "ppo_actor.pth", critic_model="ppo_critic.pth", batches=50000)
 
-    test(env=env, hyperparameters=hyperparameters_testing, actor_model= "ppo_actor.pth", critic_model="ppo_critic.pth", episodes=1000)
+    total_wins = train(env=env, hyperparameters=hyperparameters, actor_model= "ppo_actor2.pth", critic_model="ppo_critic2.pth", batches=35000)
+
+    test(env=env, hyperparameters=hyperparameters, actor_model= "ppo_actor2.pth", critic_model="ppo_critic2.pth", episodes=10000)
     
+    with open("BatchAverageEntropy2.txt", "r+") as f:        
+        x = f.readlines()
 
-    #plt.plot(total_wins)
-    #plt.title("Batch win percentages")
-    #plt.savefig("./total_win_graph.png")
+        y = [float(item) for item in x]
+
+    with open("BatchAverageValidEntropy2.txt", "r+") as f:        
+        a = f.readlines()
+ 
+        s = [float(item) for item in a]
+
+    plt.figure(0)
+    plt.plot(y, label="Average Entropy")
+    plt.plot(s, label="Valid Average Entropy")
+    plt.title("Average batch entropy")
+    plt.legend()
+    plt.savefig("./BatchAverageEntropy2.png")
+
+    with open("CriticLosses2.txt", "r+") as f:
+        t = f.readlines()
+
+        loss = [float(item) for item in t]
+
+    
+    plt.figure(1)
+    plt.plot(loss)
+    plt.title("Critic loss")
+    plt.savefig("./CriticLoss2.png")
+    
+    with open("ActorLosses2.txt", "r+") as f:        
+        r = f.readlines()
+
+        Aloss = [float(item) for item in r]
+
+    plt.figure(2)
+    plt.plot(Aloss)
+    plt.title("Actor loss")
+    plt.savefig("./ActorLoss2.png")
+
+    with open("BatchWinPercentages2.txt", "r+") as f:        
+        w = f.readlines()
+
+        wins = [float(item) for item in w]
+    
+    average_batch_wins = []
+    
+    chunks = [wins[x:x+100] for x in range(0, len(wins), 1000)]
+
+    for chunk in chunks:
+        average_batch_wins.append(sum(chunk)/len(chunk))
+
+    print(average_batch_wins)
+            
+    plt.figure(3)
+    plt.plot(wins)
+    plt.title("Average batch wins")
+    plt.savefig("./BatchWinPercentages2.png")
+
+    plt.figure(4)
+    plt.plot(average_batch_wins)
+    plt.title("Average batch wins")
+    plt.savefig("./AvgBatchWinPercentages2.png")
+    
